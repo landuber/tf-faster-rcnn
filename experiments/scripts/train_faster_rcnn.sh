@@ -23,7 +23,7 @@ case ${DATASET} in
     ANCHORS="[8,16,32]"
     ;;
   kitti_voc)
-    TRAIN_IMDB="kittivoc_train"
+    TRAIN_IMDB="kitti_train"
     STEPSIZE=80000
     ITERS=110000
     ANCHORS="[8,16,32]"

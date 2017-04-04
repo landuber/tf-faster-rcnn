@@ -19,7 +19,7 @@ import numpy as np
 
 # Set up voc_<year>_<split> using selective search "fast" mode
 for split in ['train', 'val', 'trainval', 'test']:
-    name = 'kittivoc_{}'.format(split)
+    name = 'kitti_{}'.format(split)
     __sets[name] = (lambda split=split: kitti_voc(split))
 
 # Set up voc_<year>_<split> using selective search "fast" mode
