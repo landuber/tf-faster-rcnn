@@ -23,7 +23,7 @@ for split in ['train', 'val', 'trainval', 'test']:
     __sets[name] = (lambda split=split: kitti_voc(split))
 
 # Set up voc_<year>_<split> using selective search "fast" mode
-for year in ['2012']:
+for year in ['2007', '2012']:
   for split in ['train', 'val', 'trainval', 'test']:
     name = 'voc_{}_{}'.format(year, split)
     __sets[name] = (lambda split=split, year=year: pascal_voc(split, year))
