@@ -30,7 +30,7 @@ class kitti_voc(imdb):
     self._devkit_path = self._get_default_path() if devkit_path is None \
       else devkit_path
     self._data_path = self._devkit_path
-    self._classes = ('__background__',  # always index 0
+    self._classes = ('dontcare',  # always index 0
                      'pedestrian',
                      'car',
                      'cyclist')
