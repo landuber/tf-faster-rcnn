@@ -300,7 +300,7 @@ class kitti_voc(imdb):
             aps += [ap]
             print('AP for {} = {:.4f}'.format(cls, ap))
             with open(os.path.join(output_dir, cls + '_pr.pkl'), 'w') as f:
-                cPickle.dump({'rec': rec, 'prec': prec, 'ap': ap}, f)
+                pickle.dump({'rec': rec, 'prec': prec, 'ap': ap}, f)
         print('Mean AP = {:.4f}'.format(np.mean(aps)))
         print('~~~~~~~~')
         print('Results:')
