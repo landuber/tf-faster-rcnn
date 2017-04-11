@@ -74,9 +74,7 @@ def _get_lidar_blob(roidb):
   processed_lidars = []
   im_scales = []
   for i in range(num_lidars):
-    lidar = np.fromfile(roidb[i]['lidar'], dtype=np.float32)
-    lidar = lidar.reshape((-1,4))
-    top_lidar = lidar_to_top(lidar)
+    top_lidar = np.load(roidb[i]['lidar'])
     processed_lidars.append(top_lidar)
 
   # Create a blob to hold the input images
@@ -91,8 +89,8 @@ def lidar_to_top(lidar):
     X0, Xn = 0, int((TOP_X_MAX-TOP_X_MIN)/TOP_X_DIVISION)
     Y0, Yn = 0, int((TOP_Y_MAX-TOP_Y_MIN)/TOP_Y_DIVISION)
     Z0, Zn = 0, int((TOP_Z_MAX-TOP_Z_MIN)/TOP_Z_DIVISION)
-    height  = Yn - Y0
-    width   = Xn - X0
+    width  = Yn - Y0
+    height   = Xn - X0
     channel = Zn - Z0  + 2
 
     pxs=lidar[:,0]
