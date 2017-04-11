@@ -22,8 +22,8 @@ case ${DATASET} in
     ANCHORS="[8,16,32]"
     ;;
   kitti_voc)
-    TRAIN_IMDB="kitti_train"
-    TEST_IMDB="kitti_val"
+    TRAIN_IMDB="kitti3d_train"
+    TEST_IMDB="kitti3d_val"
     STEPSIZE=80000
     ITERS=110000
     ANCHORS="[8,16,32]"
