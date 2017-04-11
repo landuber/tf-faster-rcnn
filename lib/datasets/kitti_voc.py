@@ -21,6 +21,7 @@ import subprocess
 import uuid
 from .voc_eval import voc_eval
 from model.config import cfg
+from model.common import *
 
 
 class kitti_voc(imdb):
@@ -36,6 +37,7 @@ class kitti_voc(imdb):
                      'cyclist')
     self._class_to_ind = dict(list(zip(self.classes, list(range(self.num_classes)))))
     self._image_ext = '.jpg'
+    self._lidar_ext = '.bin'
     self._image_index = self._load_image_set_index()
     self._remove_empty_samples()
     # Default to roidb handler
@@ -85,6 +87,23 @@ class kitti_voc(imdb):
     with open(image_set_file) as f:
       image_index = [x.strip() for x in f.readlines()]
     return image_index
+
+  def lidar_path_at(self, i):
+    """
+    Return the absolute path to lidar i in the image sequence.
+    """
+    return self.lidar_path_from_index(self._image_index[i])
+
+  def lidar_path_from_index(self, index):
+    """
+    Construct an image path from the image's "index" identifier.
+    """
+    lidar_path = os.path.join(self._data_path, 'Lidar',
+                              index + self._lidar_ext)
+    assert os.path.exists(lidar_path), \
+      'Path does not exist: {}'.format(lidar_path)
+    return lidar_path
+
 
   def _get_default_path(self):
     """
@@ -190,6 +209,9 @@ class kitti_voc(imdb):
         num_objs = len(objs)
 
         boxes = np.zeros((num_objs, 4), dtype=np.int32)
+        dimensions = np.zeros((num_objs, 3), dtype=np.float32)
+        locations = np.zeros((num_objs, 3), dtype=np.float32)
+        rotations_y = np.zeros((num_objs), dtype=np.float32)
         gt_classes = np.zeros((num_objs), dtype=np.int32)
         # just the same as gt_classes
         overlaps = np.zeros((num_objs, self.num_classes), dtype=np.float32)
@@ -203,11 +225,23 @@ class kitti_voc(imdb):
         # Load object bounding boxes into a data frame.
         for ix, obj in enumerate(objs):
             bbox = obj.find('bndbox')
+            dim =  obj.find('dimensions')
+            loc = obj.find('location')
             # Make pixel indexes 0-based
             x1 = max(float(bbox.find('xmin').text) - 1, 0)
             y1 = max(float(bbox.find('ymin').text) - 1, 0)
             x2 = float(bbox.find('xmax').text) - 1
             y2 = float(bbox.find('ymax').text) - 1
+            # Load dimensions
+            height = float(dim.find('height'))
+            width = float(dim.find('width'))
+            length = float(dim.find('length'))
+            # Load pose
+            xp = float(loc.find('x'))
+            yp = float(loc.find('y'))
+            zp = float(loc.find('z'))
+            # Load y rotation
+            rot_y = float(obj.find('rotation_y'))
 
             diffc = obj.find('difficult')
             difficult = 0 if diffc == None else int(diffc.text)
@@ -219,9 +253,15 @@ class kitti_voc(imdb):
             if class_name == 'dontcare':
                 dontcare_inds = np.append(dontcare_inds, np.asarray([ix], dtype=np.int32))
                 boxes[ix, :] = [x1, y1, x2, y2]
+                dimensions[ix, :] = [height, width, length]
+                locations[ix, :] = [xp, yp, zp]
+                rotations_y[ix] = rot_y
                 continue
             cls = self._class_to_ind[class_name]
             boxes[ix, :] = [x1, y1, x2, y2]
+            dimensions[ix, :] = [height, width, length]
+            locations[ix, :] = [xp, yp, zp]
+            rotations_y[ix] = rot_y
             gt_classes[ix] = cls
             overlaps[ix, cls] = 1.0
             seg_areas[ix] = (x2 - x1 + 1) * (y2 - y1 + 1)
@@ -229,6 +269,10 @@ class kitti_voc(imdb):
         # deal with dontcare areas
         dontcare_areas = boxes[dontcare_inds, :]
         boxes = boxes[care_inds, :]
+        dimensions = dimensions[care_inds, :]
+        locations = locations[care_inds, :]
+        rotations_y = rotations_y[care_inds, :]
+        top_boxes = self.generate_top_boxes(dimensions, locations, rotations_y)
         gt_classes = gt_classes[care_inds]
         overlaps = overlaps[care_inds, :]
         seg_areas = seg_areas[care_inds]
@@ -237,12 +281,84 @@ class kitti_voc(imdb):
         overlaps = scipy.sparse.csr_matrix(overlaps)
 
         return {'boxes' : boxes,
+                'top_boxes': top_boxes,
+                'dimensions': dimensions,
+                'location': location,
                 'gt_classes': gt_classes,
                 'gt_ishard' : ishards,
                 'dontcare_areas' : dontcare_areas,
                 'gt_overlaps' : overlaps,
                 'flipped' : False,
                 'seg_areas' : seg_areas}
+
+  def generate_top_boxes(self, dimensions, locations, rotations_y):
+      num = len(dimensions)
+      boxes3d = np.zeros((num, 8, 3), dtype=np.float32)
+
+      for n in range(num):
+          dim = dimensions[n, :]
+          loc = locations[n, :]
+          rot = rotations_y[n]
+
+          h = dim[0]
+          w = dim[1]
+          l = dim[2]
+
+          box = np.array([ # in velodyne coordinates around zero point and without orientation yet\
+                  [-l/2, -l/2,  l/2, l/2, -l/2, -l/2,  l/2, l/2], \
+                  [ w/2, -w/2, -w/2, w/2,  w/2, -w/2, -w/2, w/2], \
+                  [ 0.0,  0.0,  0.0, 0.0,    h,     h,   h,   h]])
+
+
+          rotMat = np.array([\
+                  [np.cos(rot), -np.sin(rot), 0.0], \
+                  [np.sin(rot),  np.cos(rot), 0.0], \
+                  [        0.0,          0.0, 1.0]])
+          cornerPosInVelo = np.dot(rotMat, box) + np.tile(loc, (8,1)).T
+          boxes3d[n, :] = cornerPosInVelo.transpose()
+
+      return self.box3d_to_top_box(boxes3d)
+
+
+  def box3d_to_top_box(self, boxes3d):
+
+        num  = len(boxes3d)
+        boxes = np.zeros((num,4),  dtype=np.float32)
+
+        for n in range(num):
+            b   = boxes3d[n]
+
+            x0 = b[0,0]
+            y0 = b[0,1]
+            x1 = b[1,0]
+            y1 = b[1,1]
+            x2 = b[2,0]
+            y2 = b[2,1]
+            x3 = b[3,0]
+            y3 = b[3,1]
+            u0,v0=self.lidar_to_top_coords(x0,y0)
+            u1,v1=self.lidar_to_top_coords(x1,y1)
+            u2,v2=self.lidar_to_top_coords(x2,y2)
+            u3,v3=self.lidar_to_top_coords(x3,y3)
+
+            umin=min(u0,u1,u2,u3)
+            umax=max(u0,u1,u2,u3)
+            vmin=min(v0,v1,v2,v3)
+            vmax=max(v0,v1,v2,v3)
+
+            boxes[n]=np.array([umin,vmin,umax,vmax])
+
+        return boxes
+
+
+  def lidar_to_top_coords(self, x,y,z=None):
+        X0, Xn = 0, int((TOP_X_MAX-TOP_X_MIN)//TOP_X_DIVISION)+1
+        Y0, Yn = 0, int((TOP_Y_MAX-TOP_Y_MIN)//TOP_Y_DIVISION)+1
+        xx = Yn-int((y-TOP_Y_MIN)//TOP_Y_DIVISION)
+        yy = Xn-int((x-TOP_X_MIN)//TOP_X_DIVISION)
+
+        return xx,yy
+
 
   def _get_comp_id(self):
     comp_id = (self._comp_id + '_' + self._salt if self.config['use_salt']

@@ -30,6 +30,22 @@ def im_list_to_blob(ims):
   return blob
 
 
+def lidar_list_to_blob(lidars):
+  """Convert a list of images into a network input.
+
+  Assumes images are already prepared (means subtracted, BGR order, ...).
+  """
+  max_shape = np.array([lidars.shape for lidar in lidars]).max(axis=0)
+  num_lidars = len(lidars)
+  blob = np.zeros((num_lidars, max_shape[0], max_shape[1], max_shape[2]),
+                  dtype=np.float32)
+  for i in range(num_lidars):
+    lidar = lidars[i]
+    blob[i, 0:lidar.shape[0], 0:lidar.shape[1], 0:lidar.shape[2]] = lidar
+
+  return blob
+
+
 def prep_im_for_blob(im, pixel_means, target_size, max_size):
   """Mean subtract and scale an image for use in a blob."""
   im = im.astype(np.float32, copy=False)
@@ -45,3 +61,4 @@ def prep_im_for_blob(im, pixel_means, target_size, max_size):
                   interpolation=cv2.INTER_LINEAR)
 
   return im, im_scale
+

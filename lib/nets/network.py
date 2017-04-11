@@ -273,7 +273,7 @@ class Network(object):
 
   def create_architecture(self, sess, mode, num_classes,
                           tag=None, anchor_scales=[8, 16, 32]):
-    self._image = tf.placeholder(tf.float32, shape=[self._batch_size, None, None, 3])
+    self._image = tf.placeholder(tf.float32, shape=[self._batch_size, None, None, None])
     self._im_info = tf.placeholder(tf.float32, shape=[self._batch_size, 3])
     self._gt_boxes = tf.placeholder(tf.float32, shape=[None, 5])
     self._tag = tag
