@@ -109,7 +109,7 @@ class kitti_voc(imdb):
     """
     Return the default path where PASCAL VOC is expected to be installed.
     """
-    return os.path.join(cfg.DATA_DIR, 'KITTIVOC')
+    return os.path.join(cfg.DATA_DIR, 'KITTIVOC3D')
 
   def gt_roidb(self):
     """
