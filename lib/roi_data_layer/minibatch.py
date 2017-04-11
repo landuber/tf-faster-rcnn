@@ -11,6 +11,7 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
+import math
 import numpy.random as npr
 import cv2
 from model.config import cfg
@@ -32,7 +33,10 @@ def get_minibatch(roidb, num_classes):
   im_blob, im_scales = _get_image_blob(roidb, random_scale_inds)
   lidar_blob = _get_lidar_blob(roidb)
 
-  blobs = {'data': im_blob, 'lidar_data': lidar_blob }
+  #blobs = {'data': im_blob}
+  blobs = {'data': lidar_blob}
+  print('blob shape:')
+  print(lidar_blob.shape)
 
   assert len(im_scales) == 1, "Single batch only"
   assert len(roidb) == 1, "Single batch only"
@@ -48,10 +52,11 @@ def get_minibatch(roidb, num_classes):
   #gt_boxes[:, 0:4] = roidb[0]['boxes'][gt_inds, :] * im_scales[0]
   #gt_boxes[:, 4] = roidb[0]['gt_classes'][gt_inds]
   gt_boxes = np.empty((len(gt_inds), 5), dtype=np.float32)
+  print(roidb[0])
   gt_boxes[:, 0:4] = roidb[0]['top_boxes'][gt_inds, :]
   gt_boxes[:, 4] = roidb[0]['gt_classes'][gt_inds]
   #blobs['gt_boxes'] = gt_boxes
-  blobs['gt_boxes'] = gt_top_boxes
+  blobs['gt_boxes'] = gt_boxes
   #blobs['im_info'] = np.array(
   #  [[im_blob.shape[1], im_blob.shape[2], im_scales[0]]],
   #  dtype=np.float32)
@@ -70,7 +75,8 @@ def _get_lidar_blob(roidb):
   im_scales = []
   for i in range(num_lidars):
     lidar = np.fromfile(roidb[i]['lidar'], dtype=np.float32)
-    top_lidar = self.lidar_to_top(lidar)
+    lidar = lidar.reshape((-1,4))
+    top_lidar = lidar_to_top(lidar)
     processed_lidars.append(top_lidar)
 
   # Create a blob to hold the input images
@@ -80,11 +86,11 @@ def _get_lidar_blob(roidb):
 
 
 ## lidar to top ##
-def lidar_to_top(self, lidar):
+def lidar_to_top(lidar):
 
-    X0, Xn = 0, int((TOP_X_MAX-TOP_X_MIN)//TOP_X_DIVISION)+1
-    Y0, Yn = 0, int((TOP_Y_MAX-TOP_Y_MIN)//TOP_Y_DIVISION)+1
-    Z0, Zn = 0, int((TOP_Z_MAX-TOP_Z_MIN)//TOP_Z_DIVISION)+1
+    X0, Xn = 0, int((TOP_X_MAX-TOP_X_MIN)/TOP_X_DIVISION)
+    Y0, Yn = 0, int((TOP_Y_MAX-TOP_Y_MIN)/TOP_Y_DIVISION)
+    Z0, Zn = 0, int((TOP_Z_MAX-TOP_Z_MIN)/TOP_Z_DIVISION)
     height  = Yn - Y0
     width   = Xn - X0
     channel = Zn - Z0  + 2
@@ -94,9 +100,9 @@ def lidar_to_top(self, lidar):
     pzs=lidar[:,2]
     prs=lidar[:,3]
 
-    qxs=((pxs-TOP_X_MIN)//TOP_X_DIVISION).astype(np.int32)
-    qys=((pys-TOP_Y_MIN)//TOP_Y_DIVISION).astype(np.int32)
-    qzs=((pzs-TOP_Z_MIN)//TOP_Z_DIVISION).astype(np.int32)
+    qxs=((pxs-TOP_X_MIN)/TOP_X_DIVISION).astype(np.int32)
+    qys=((pys-TOP_Y_MIN)/TOP_Y_DIVISION).astype(np.int32)
+    qzs=((pzs-TOP_Z_MIN)/TOP_Z_DIVISION).astype(np.int32)
 
     print('height,width,channel=%d,%d,%d'%(height,width,channel))
     top = np.zeros(shape=(height,width,channel), dtype=np.float32)

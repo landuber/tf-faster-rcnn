@@ -111,6 +111,10 @@ def anchor_target_layer(rpn_cls_score, gt_boxes, im_info, _feat_stride, all_anch
   bbox_outside_weights[labels == 1, :] = positive_weights
   bbox_outside_weights[labels == 0, :] = negative_weights
 
+  print('labels shape before')
+  print(labels.shape)
+  print('total anchors')
+  print(total_anchors)
   # map up to original set of anchors
   labels = _unmap(labels, total_anchors, inds_inside, fill=-1)
   bbox_targets = _unmap(bbox_targets, total_anchors, inds_inside, fill=0)

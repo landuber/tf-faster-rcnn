@@ -26,7 +26,7 @@ from model.common import *
 
 class kitti_voc(imdb):
   def __init__(self, image_set, devkit_path=None):
-    imdb.__init__(self, 'kitti_' + image_set)
+    imdb.__init__(self, 'kitti3d_' + image_set)
     self._image_set = image_set
     self._devkit_path = self._get_default_path() if devkit_path is None \
       else devkit_path
@@ -129,6 +129,7 @@ class kitti_voc(imdb):
 
     gt_roidb = [self._load_pascal_annotation(index)
                 for index in self.image_index]
+    print(gt_roidb[0])
     with open(cache_file, 'wb') as fid:
       pickle.dump(gt_roidb, fid, pickle.HIGHEST_PROTOCOL)
     print('wrote gt roidb to {}'.format(cache_file))
@@ -233,15 +234,15 @@ class kitti_voc(imdb):
             x2 = float(bbox.find('xmax').text) - 1
             y2 = float(bbox.find('ymax').text) - 1
             # Load dimensions
-            height = float(dim.find('height'))
-            width = float(dim.find('width'))
-            length = float(dim.find('length'))
+            height = float(dim.find('height').text)
+            width = float(dim.find('width').text)
+            length = float(dim.find('length').text)
             # Load pose
-            xp = float(loc.find('x'))
-            yp = float(loc.find('y'))
-            zp = float(loc.find('z'))
+            xp = float(loc.find('x').text)
+            yp = float(loc.find('y').text)
+            zp = float(loc.find('z').text)
             # Load y rotation
-            rot_y = float(obj.find('rotation_y'))
+            rot_y = float(obj.find('rotation_y').text)
 
             diffc = obj.find('difficult')
             difficult = 0 if diffc == None else int(diffc.text)
@@ -271,7 +272,7 @@ class kitti_voc(imdb):
         boxes = boxes[care_inds, :]
         dimensions = dimensions[care_inds, :]
         locations = locations[care_inds, :]
-        rotations_y = rotations_y[care_inds, :]
+        rotations_y = rotations_y[care_inds]
         top_boxes = self.generate_top_boxes(dimensions, locations, rotations_y)
         gt_classes = gt_classes[care_inds]
         overlaps = overlaps[care_inds, :]
@@ -282,8 +283,6 @@ class kitti_voc(imdb):
 
         return {'boxes' : boxes,
                 'top_boxes': top_boxes,
-                'dimensions': dimensions,
-                'location': location,
                 'gt_classes': gt_classes,
                 'gt_ishard' : ishards,
                 'dontcare_areas' : dontcare_areas,

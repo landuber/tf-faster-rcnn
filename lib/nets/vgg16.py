@@ -33,6 +33,7 @@ class vgg16(Network):
     self._arch = 'vgg16'
 
   def build_network(self, sess, is_training=True):
+    self.is_training = is_training
     with tf.variable_scope('vgg_16', 'vgg_16',
                            regularizer=tf.contrib.layers.l2_regularizer(cfg.TRAIN.WEIGHT_DECAY)):
       # select initializers
@@ -42,33 +43,32 @@ class vgg16(Network):
       else:
         self._initializer = tf.random_normal_initializer(mean=0.0, stddev=0.01)
         self._initializer_bbox = tf.random_normal_initializer(mean=0.0, stddev=0.001)
-      with tf.variable_scope("bv"):
-        rois, net_bv = build_rpn_bv()
-        pool5_bv = roi_pool(rois, net)
+      rois, net_bv = self.build_rpn_bv()
+      pool5_bv = self.roi_pool(rois, net_bv)
 
       #todo: accumulate pool5's from all the subnetworks
-      build_rcnn(pool5_bv)
+      self.build_rcnn(pool5_bv)
 
       self._score_summaries.update(self._predictions)
 
       return self._predictions["rois"], self._predictions["cls_prob"], self._predictions["bbox_pred"]
 
-  def build_rpn_bv():
+  def build_rpn_bv(self):
       net = slim.repeat(self._image, 2, slim.conv2d, 64, [3, 3],
-                        trainable=False, scope='conv1')
+                        trainable=self.is_training, scope='conv1')
       net = slim.max_pool2d(net, [2, 2], padding='SAME', scope='pool1')
       net = slim.repeat(net, 2, slim.conv2d, 128, [3, 3],
-                        trainable=False, scope='conv2')
+                        trainable=self.is_training, scope='conv2')
       net = slim.max_pool2d(net, [2, 2], padding='SAME', scope='pool2')
       net = slim.repeat(net, 3, slim.conv2d, 256, [3, 3],
-                        trainable=is_training, scope='conv3')
+                        trainable=self.is_training, scope='conv3')
       net = slim.max_pool2d(net, [2, 2], padding='SAME', scope='pool3')
       net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3],
-                        trainable=is_training, scope='conv4')
+                        trainable=self.is_training, scope='conv4')
       # Remove the 4th pooling operation for BirdsView rpn
       #net = slim.max_pool2d(net, [2, 2], padding='SAME', scope='pool4')
       net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3],
-                        trainable=is_training, scope='conv5')
+                        trainable=self.is_training, scope='conv5')
       # 2x deconv for lidar
       size = tf.shape(net)
       net = tf.image.resize_images(net, [size[1] * 2, size[2] * 2])
@@ -78,21 +78,21 @@ class vgg16(Network):
       self._anchor_component()
 
       # rpn
-      rpn = slim.conv2d(net, 512, [3, 3], trainable=is_training, weights_initializer=self._initializer, scope="rpn_conv/3x3")
+      rpn = slim.conv2d(net, 512, [3, 3], trainable=self.is_training, weights_initializer=self._initializer, scope="rpn_conv/3x3")
       self._act_summaries.append(rpn)
       # for lidar there are only 4 anchor types
-      rpn_cls_score = slim.conv2d(rpn, self._num_scales * 6, [1, 1], trainable=is_training,
+      rpn_cls_score = slim.conv2d(rpn, self._num_scales * 6, [1, 1], trainable=self.is_training,
                                   weights_initializer=self._initializer,
                                   padding='VALID', activation_fn=None, scope='rpn_cls_score')
       # change it so that the score has 2 as its channel size
       rpn_cls_score_reshape = self._reshape_layer(rpn_cls_score, 2, 'rpn_cls_score_reshape')
       rpn_cls_prob_reshape = self._softmax_layer(rpn_cls_score_reshape, "rpn_cls_prob_reshape")
-      rpn_cls_prob = self._reshape_layer(rpn_cls_prob_reshape, self._num_scales * 4, "rpn_cls_prob")
+      rpn_cls_prob = self._reshape_layer(rpn_cls_prob_reshape, self._num_scales * 6, "rpn_cls_prob")
       # for lidar there are only 4 anchor types
-      rpn_bbox_pred = slim.conv2d(rpn, self._num_scales * 12, [1, 1], trainable=is_training,
+      rpn_bbox_pred = slim.conv2d(rpn, self._num_scales * 12, [1, 1], trainable=self.is_training,
                                   weights_initializer=self._initializer,
                                   padding='VALID', activation_fn=None, scope='rpn_bbox_pred')
-      if is_training:
+      if self.is_training:
         rois, roi_scores = self._proposal_layer(rpn_cls_prob, rpn_bbox_pred, "rois")
         rpn_labels = self._anchor_target_layer(rpn_cls_score, "anchor")
         # Try to have a determinestic order for the computing graph, for reproducibility
@@ -115,7 +115,7 @@ class vgg16(Network):
 
       return rois, net
 
-  def roi_pool(rois, net):
+  def roi_pool(self, rois, net):
       # pooling
       if cfg.POOLING_MODE == 'crop':
         # doing bilinear upsampling
@@ -127,24 +127,24 @@ class vgg16(Network):
       else:
         raise NotImplementedError
 
-  def build_rcnn(pool5):
+  def build_rcnn(self, pool5):
       # rcnn
       pool5_flat = slim.flatten(pool5, scope='flatten')
       fc6 = slim.fully_connected(pool5_flat, 4096, scope='fc6')
-      if is_training:
+      if self.is_training:
         fc6 = slim.dropout(fc6, scope='dropout6')
       fc7 = slim.fully_connected(fc6, 4096, scope='fc7')
-      if is_training:
+      if self.is_training:
         fc7 = slim.dropout(fc7, scope='dropout7')
       # Adding fc8 for the lidar
       fc8 = slim.fully_connected(fc7, 4096, scope='fc8')
-      if is_training:
+      if self.is_training:
         fc8 = slim.dropout(fc8, scope='dropout8')
-      cls_score = slim.fully_connected(fc8, self._num_classes, weights_initializer=self._initializer, trainable=is_training,
+      cls_score = slim.fully_connected(fc8, self._num_classes, weights_initializer=self._initializer, trainable=self.is_training,
                               activation_fn=None, scope='cls_score')
       cls_prob = self._softmax_layer(cls_score, "cls_prob")
       bbox_pred = slim.fully_connected(fc7, self._num_classes * 4, weights_initializer=self._initializer_bbox,
-                              trainable=is_training,
+                              trainable=self.is_training,
                               activation_fn=None, scope='bbox_pred')
       self._predictions["cls_score"] = cls_score
       self._predictions["cls_prob"] = cls_prob

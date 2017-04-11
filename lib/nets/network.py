@@ -25,12 +25,13 @@ from layer_utils.anchor_target_layer import anchor_target_layer
 from layer_utils.proposal_target_layer import proposal_target_layer
 
 from model.config import cfg
+from model.common import *
 
 
 class Network(object):
   def __init__(self, batch_size=1):
-    self._feat_stride = [16, ]
-    self._feat_compress = [1. / 16., ]
+    self._feat_stride = [4, ]
+    self._feat_compress = [1. / 4., ]
     self._batch_size = batch_size
     self._predictions = {}
     self._losses = {}
@@ -194,8 +195,8 @@ class Network(object):
 
   def _anchor_component(self):
     with tf.variable_scope('ANCHOR_' + self._tag) as scope:
-      height = tf.to_int32(tf.ceil(self._im_info[0, 0] / 16.))
-      width = tf.to_int32(tf.ceil(self._im_info[0, 1] / 16.))
+      height = tf.to_int32(tf.ceil(self._im_info[0, 0] / 4.))
+      width = tf.to_int32(tf.ceil(self._im_info[0, 1] / 4.))
       anchors, anchor_length = tf.py_func(generate_anchors_pre,
                                           [height, width,
                                            self._feat_stride, self._anchor_scales],
@@ -273,7 +274,10 @@ class Network(object):
 
   def create_architecture(self, sess, mode, num_classes,
                           tag=None, anchor_scales=[8, 16, 32]):
-    self._image = tf.placeholder(tf.float32, shape=[self._batch_size, None, None, None])
+    # calculate the depth of the input tensor dyanamically
+    Zn = int((TOP_Z_MAX-TOP_Z_MIN)/TOP_Z_DIVISION)
+    channel = Zn + 2
+    self._image = tf.placeholder(tf.float32, shape=[self._batch_size, None, None, channel])
     self._im_info = tf.placeholder(tf.float32, shape=[self._batch_size, 3])
     self._gt_boxes = tf.placeholder(tf.float32, shape=[None, 5])
     self._tag = tag
@@ -314,7 +318,7 @@ class Network(object):
 
     val_summaries = []
     with tf.device("/cpu:0"):
-      val_summaries.append(self._add_image_summary(self._image, self._gt_boxes))
+      #val_summaries.append(self._add_image_summary(self._image, self._gt_boxes))
       for key, var in self._event_summaries.items():
         val_summaries.append(tf.summary.scalar(key, var))
       for key, var in self._score_summaries.items():
