@@ -45,10 +45,10 @@ class Network(object):
 
 
   def _add_lidar_summary(self, lidar, boxes):
-    image = np.sum(lidar,axis=2)
-    image = image-np.min(image)
-    image = (image/np.max(image)*255)
-    image = np.dstack((image, image, image)).astype(np.uint8)
+    image = tf.reduce_sum(lidar,axis=-1)
+    image = image - tf.reduce_min(image)
+    image = (image/tf.reduce_max(image)*255)
+    image    = tf.stack ([image, image, image], axis=-1)
     # dims for normalization
     width  = tf.to_float(tf.shape(image)[2])
     height = tf.to_float(tf.shape(image)[1])
