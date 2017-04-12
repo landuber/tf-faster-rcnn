@@ -296,8 +296,7 @@ class kitti_voc(imdb):
       for n in range(num):
           dim = dimensions[n, :]
           loc = locations[n, :]
-          # convert to z-axix rotation in voledyne coordinate
-          rot = -rotations_y[n]
+          rot = rotations_y[n]
 
           h = dim[0]
           w = dim[1]
@@ -356,7 +355,7 @@ class kitti_voc(imdb):
         xx = Yn-int((y-TOP_Y_MIN)/TOP_Y_DIVISION)
         yy = Xn-int((x-TOP_X_MIN)/TOP_X_DIVISION)
 
-        return xx,yy
+        return yy,xx
 
 
   def _get_comp_id(self):
