@@ -351,10 +351,10 @@ class kitti_voc(imdb):
 
 
   def lidar_to_top_coords(self, x,y,z=None):
-        X0, Xn = 0, int((TOP_X_MAX-TOP_X_MIN)//TOP_X_DIVISION)+1
-        Y0, Yn = 0, int((TOP_Y_MAX-TOP_Y_MIN)//TOP_Y_DIVISION)+1
-        xx = Yn-int((y-TOP_Y_MIN)//TOP_Y_DIVISION)
-        yy = Xn-int((x-TOP_X_MIN)//TOP_X_DIVISION)
+        X0, Xn = 0, int((TOP_X_MAX-TOP_X_MIN)/TOP_X_DIVISION)
+        Y0, Yn = 0, int((TOP_Y_MAX-TOP_Y_MIN)/TOP_Y_DIVISION)
+        xx = Yn-int((y-TOP_Y_MIN)/TOP_Y_DIVISION)
+        yy = Xn-int((x-TOP_X_MIN)/TOP_X_DIVISION)
 
         return xx,yy
 
