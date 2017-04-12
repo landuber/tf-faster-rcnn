@@ -35,8 +35,6 @@ def get_minibatch(roidb, num_classes):
 
   #blobs = {'data': im_blob}
   blobs = {'data': lidar_blob}
-  print('blob shape:')
-  print(lidar_blob.shape)
 
   assert len(im_scales) == 1, "Single batch only"
   assert len(roidb) == 1, "Single batch only"
@@ -52,7 +50,6 @@ def get_minibatch(roidb, num_classes):
   #gt_boxes[:, 0:4] = roidb[0]['boxes'][gt_inds, :] * im_scales[0]
   #gt_boxes[:, 4] = roidb[0]['gt_classes'][gt_inds]
   gt_boxes = np.empty((len(gt_inds), 5), dtype=np.float32)
-  print(roidb[0])
   gt_boxes[:, 0:4] = roidb[0]['top_boxes'][gt_inds, :]
   gt_boxes[:, 4] = roidb[0]['gt_classes'][gt_inds]
   #blobs['gt_boxes'] = gt_boxes

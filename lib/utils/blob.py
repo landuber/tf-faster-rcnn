@@ -36,15 +36,11 @@ def lidar_list_to_blob(lidars):
   Assumes images are already prepared (means subtracted, BGR order, ...).
   """
   max_shape = np.array([lidar.shape for lidar in lidars]).max(axis=0)
-  print('max shape')
-  print(max_shape)
   num_lidars = len(lidars)
   blob = np.zeros((num_lidars, max_shape[0], max_shape[1], max_shape[2]),
                   dtype=np.float32)
   for i in range(num_lidars):
     lidar = lidars[i]
-    print('lidar shape')
-    print(lidar.shape)
     blob[i, 0:lidar.shape[0], 0:lidar.shape[1], 0:lidar.shape[2]] = lidar
 
   return blob
