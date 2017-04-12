@@ -296,7 +296,8 @@ class kitti_voc(imdb):
       for n in range(num):
           dim = dimensions[n, :]
           loc = locations[n, :]
-          rot = rotations_y[n]
+          # convert to z-axix rotation in voledyne coordinate
+          rot = -rotations_y[n]
 
           h = dim[0]
           w = dim[1]
