@@ -49,9 +49,9 @@ def get_minibatch(roidb, num_classes):
   #gt_boxes = np.empty((len(gt_inds), 5), dtype=np.float32)
   #gt_boxes[:, 0:4] = roidb[0]['boxes'][gt_inds, :] * im_scales[0]
   #gt_boxes[:, 4] = roidb[0]['gt_classes'][gt_inds]
-  gt_boxes = np.empty((len(gt_inds), 5), dtype=np.float32)
-  gt_boxes[:, 0:4] = roidb[0]['top_boxes'][gt_inds, :]
-  gt_boxes[:, 4] = roidb[0]['gt_classes'][gt_inds]
+  gt_boxes = np.empty((len(gt_inds), 7), dtype=np.float32)
+  gt_boxes[:, 0:6] = roidb[0]['top_boxes'][gt_inds, :]
+  gt_boxes[:, 6] = roidb[0]['gt_classes'][gt_inds]
   #blobs['gt_boxes'] = gt_boxes
   blobs['gt_boxes'] = gt_boxes
   #blobs['im_info'] = np.array(

@@ -4,13 +4,12 @@ TOP_Y_MIN=-20  #40
 TOP_Y_MAX=+20
 TOP_X_MIN=0
 TOP_X_MAX=40   #70.4
-TOP_Z_MIN=-2.0    ###<todo> determine the correct values!
-TOP_Z_MAX= 0.4
-ANCHOR_DEPTH = 1.0 ###<todo> determin the correct values!
+TOP_Z_MIN=-2    ###<todo> determine the correct values!
+TOP_Z_MAX= 2
 
 TOP_X_DIVISION=0.1  #0.1
 TOP_Y_DIVISION=0.1
-TOP_Z_DIVISION=0.4
+TOP_Z_DIVISION=0.1
 
 
 #rgb camera

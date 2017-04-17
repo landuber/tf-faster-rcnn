@@ -10,18 +10,16 @@ import numpy as np
 import math
 import shutil
 
-
-
 TOP_Y_MIN=-20  #40
 TOP_Y_MAX=+20
 TOP_X_MIN=0
 TOP_X_MAX=40   #70.4
-TOP_Z_MIN=-2.0    ###<todo> determine the correct values!
-TOP_Z_MAX= 0.4
+TOP_Z_MIN=-2    ###<todo> determine the correct values!
+TOP_Z_MAX= 2
 
 TOP_X_DIVISION=0.1  #0.1
 TOP_Y_DIVISION=0.1
-TOP_Z_DIVISION=0.4
+TOP_Z_DIVISION=0.1
 
 
 #rgb camera
@@ -35,12 +33,13 @@ MATRIX_Kt = ([[ 721.5377,    0.    ,    0.    ],
               [ 609.5593,  172.854 ,    1.    ]])
 
 
+
 def generate_top_box(dim, loc, rot, cam_to_velo):
   h = dim[0]
   w = dim[1]
   l = dim[2]
 
-  box = np.array([ # in velodyne coordinates around zero point and without orientation yet\
+  box = np.array([ # in camera coordinates around zero point and without orientation yet\
           [l/2, l/2,  -l/2, -l/2, l/2, l/2,  -l/2, -l/2], \
           [ 0.0,  0.0,  0.0, 0.0,   -h,  -h,  -h,  -h], \
           [ w/2, -w/2, -w/2, w/2,  w/2, -w/2, -w/2, w/2]])
@@ -73,12 +72,18 @@ def box3d_to_top_box(b):
     u2,v2=lidar_to_top_coords(x2,y2)
     u3,v3=lidar_to_top_coords(x3,y3)
 
+    z0 = min(b[0,2], b[1,2], b[2,2], b[3,2]) # top
+    z4 = max(b[4,2], b[5,2], b[6,2], b[7,2]) # bottom
+    Zn = int((TOP_Z_MAX-TOP_Z_MIN)/TOP_Z_DIVISION)
+    zmax = Zn-int((z0-TOP_Z_MIN)/TOP_Z_DIVISION)
+    zmin = Zn-int((z4-TOP_Z_MIN)/TOP_Z_DIVISION)
+
     umin=min(u0,u1,u2,u3)
     umax=max(u0,u1,u2,u3)
     vmin=min(v0,v1,v2,v3)
     vmax=max(v0,v1,v2,v3)
 
-    top_box=np.array([umin,vmin,umax,vmax])
+    top_box=np.array([umin,vmin,zmin,umax,vmax,zmax])
 
     return top_box
 
@@ -200,8 +205,10 @@ def generate_xml(name, lines, calib_lines, img_size = (370, 1224, 3), \
         tb = append_xml_node_attr('topbox', parent=obj)
         append_xml_node_attr('xmin', parent=tb, text=str(top_box[0]))
         append_xml_node_attr('ymin', parent=tb, text=str(top_box[1]))
-        append_xml_node_attr('xmax', parent=tb, text=str(top_box[2]))
-        append_xml_node_attr('ymax', parent=tb, text=str(top_box[3]))
+        append_xml_node_attr('zmin', parent=tb, text=str(top_box[2]))
+        append_xml_node_attr('xmax', parent=tb, text=str(top_box[3]))
+        append_xml_node_attr('ymax', parent=tb, text=str(top_box[4]))
+        append_xml_node_attr('zmax', parent=tb, text=str(top_box[5]))
         location = append_xml_node_attr('location', parent=obj)
         append_xml_node_attr('x', parent=location, text=str(x))
         append_xml_node_attr('y', parent=location, text=str(y))
@@ -420,7 +427,7 @@ if __name__ == '__main__':
 
         files = glob.glob(os.path.join(_labeldir, '*.txt'))
         files.sort()
-        for file in files[:300]:
+        for file in files[:30]:
             path, basename = os.path.split(file)
             stem, ext = os.path.splitext(basename)
             with open(file, 'r') as f:
@@ -434,17 +441,17 @@ if __name__ == '__main__':
             doc, objs = generate_xml(stem, lines, calib_lines, img_size, class_sets=class_sets, doncateothers=_doncateothers)
 
             # Lidar related code
-            #src_lidar_file = os.path.join(_lidardir, stem + '.bin')
-            #lidar_file = os.path.join(_dest_lidar_dir, stem + '.bin')
-            #shutil.copy2(src_lidar_file, lidar_file)
-            #lidar2_file = os.path.join(_dest_lidar_dir, stem + '.npy')
-            #lidar3_file = os.path.join(_dest_lidar_dir, stem + '.png')
-            #lidar = np.fromfile(lidar_file, dtype=np.float32)
-            #lidar = lidar.reshape((-1, 4))
-            #print('discretizing started')
-            #lidar, top = lidar_to_top(lidar)
-            #print('discretizing ended')
-            #np.save(lidar2_file,lidar)
+            src_lidar_file = os.path.join(_lidardir, stem + '.bin')
+            lidar_file = os.path.join(_dest_lidar_dir, stem + '.bin')
+            shutil.copy2(src_lidar_file, lidar_file)
+            lidar2_file = os.path.join(_dest_lidar_dir, stem + '.npy')
+            lidar3_file = os.path.join(_dest_lidar_dir, stem + '.png')
+            lidar = np.fromfile(lidar_file, dtype=np.float32)
+            lidar = lidar.reshape((-1, 4))
+            print('discretizing started')
+            lidar, top = lidar_to_top(lidar)
+            print('discretizing ended')
+            np.save(lidar2_file,lidar)
 
             if _draw:
                 top = _draw_on_image(top, objs, class_sets_dict)

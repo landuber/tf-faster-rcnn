@@ -237,8 +237,10 @@ class kitti_voc(imdb):
             # Make pixel indexes 0-based
             tx1 = float(tbox.find('xmin').text)
             ty1 = float(tbox.find('ymin').text)
+            tz1 = float(tbox.find('zmin').text)
             tx2 = float(tbox.find('xmax').text)
             ty2 = float(tbox.find('ymax').text)
+            tz2 = float(tbox.find('zmax').text)
             # Load dimensions
             height = float(dim.find('height').text)
             width = float(dim.find('width').text)
@@ -260,14 +262,14 @@ class kitti_voc(imdb):
             if class_name == 'dontcare':
                 dontcare_inds = np.append(dontcare_inds, np.asarray([ix], dtype=np.int32))
                 boxes[ix, :] = [x1, y1, x2, y2]
-                top_boxes[ix, :] = [tx1, ty1, tx2, ty2]
+                top_boxes[ix, :] = [tx1, ty1, tz1, tx2, ty2, tz2]
                 dimensions[ix, :] = [height, width, length]
                 locations[ix, :] = [xp, yp, zp]
                 rotations_y[ix] = rot_y
                 continue
             cls = self._class_to_ind[class_name]
             boxes[ix, :] = [x1, y1, x2, y2]
-            top_boxes[ix, :] = [tx1, ty1, tx2, ty2]
+            top_boxes[ix, :] = [tx1, ty1, tz1, tx2, ty2, tz2]
             dimensions[ix, :] = [height, width, length]
             locations[ix, :] = [xp, yp, zp]
             rotations_y[ix] = rot_y

@@ -25,10 +25,13 @@ def generate_anchors_pre(height, width, feat_stride, anchor_scales):
   shift_y = np.arange(0, height) * feat_stride
   shift_x, shift_y = np.meshgrid(shift_x, shift_y)
   shifts = np.vstack((shift_x.ravel(), shift_y.ravel(), shift_x.ravel(), shift_y.ravel())).transpose()
+  shifts = numpy.insert(shifts, 2, 0, axis=1)
+  shifts = numpy.insert(shifts, 5, 0, axis=1)
+
   K = shifts.shape[0]
   # width changes faster, so here it is H, W, C
-  anchors = anchors.reshape((1, A, 4)) + shifts.reshape((1, K, 4)).transpose((1, 0, 2))
-  anchors = anchors.reshape((K * A, 4)).astype(np.float32, copy=False)
+  anchors = anchors.reshape((1, A, 6)) + shifts.reshape((1, K, 6)).transpose((1, 0, 2))
+  anchors = anchors.reshape((K * A, 6)).astype(np.float32, copy=False)
   length = np.int32(anchors.shape[0])
 
   return anchors, length

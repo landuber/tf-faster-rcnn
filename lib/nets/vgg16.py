@@ -44,9 +44,8 @@ class vgg16(Network):
         self._initializer = tf.random_normal_initializer(mean=0.0, stddev=0.01)
         self._initializer_bbox = tf.random_normal_initializer(mean=0.0, stddev=0.001)
       rois, net_bv = self.build_rpn_bv()
-      pool5_bv = self.roi_pool(rois, net_bv)
 
-      #todo: accumulate pool5's from all the subnetworks
+      pool5_bv = self.roi_pool(rois, net_bv)
       self.build_rcnn(pool5_bv)
 
       self._score_summaries.update(self._predictions)
@@ -80,20 +79,20 @@ class vgg16(Network):
       # rpn
       rpn = slim.conv2d(net, 512, [3, 3], trainable=self.is_training, weights_initializer=self._initializer, scope="rpn_conv/3x3")
       self._act_summaries.append(rpn)
-      # for lidar there are only 4 anchor types
-      rpn_cls_score = slim.conv2d(rpn, self._num_scales * 6, [1, 1], trainable=self.is_training,
+      rpn_cls_score = slim.conv2d(rpn, self._num_scales * 3 * 2, [1, 1], trainable=self.is_training,
                                   weights_initializer=self._initializer,
                                   padding='VALID', activation_fn=None, scope='rpn_cls_score')
       # change it so that the score has 2 as its channel size
       rpn_cls_score_reshape = self._reshape_layer(rpn_cls_score, 2, 'rpn_cls_score_reshape')
       rpn_cls_prob_reshape = self._softmax_layer(rpn_cls_score_reshape, "rpn_cls_prob_reshape")
       rpn_cls_prob = self._reshape_layer(rpn_cls_prob_reshape, self._num_scales * 6, "rpn_cls_prob")
-      # for lidar there are only 4 anchor types
-      rpn_bbox_pred = slim.conv2d(rpn, self._num_scales * 12, [1, 1], trainable=self.is_training,
+      rpn_bbox_pred = slim.conv2d(rpn, self._num_scales * 3 * 6, [1, 1], trainable=self.is_training,
                                   weights_initializer=self._initializer,
                                   padding='VALID', activation_fn=None, scope='rpn_bbox_pred')
       if self.is_training:
+        # Get all top scoring anchors after filtering via non-maximal suppression
         rois, roi_scores = self._proposal_layer(rpn_cls_prob, rpn_bbox_pred, "rois")
+        # Using IoU determine the labels for each anchor type at all locations
         rpn_labels = self._anchor_target_layer(rpn_cls_score, "anchor")
         # Try to have a determinestic order for the computing graph, for reproducibility
         with tf.control_dependencies([rpn_labels]):
@@ -143,7 +142,7 @@ class vgg16(Network):
       cls_score = slim.fully_connected(fc8, self._num_classes, weights_initializer=self._initializer, trainable=self.is_training,
                               activation_fn=None, scope='cls_score')
       cls_prob = self._softmax_layer(cls_score, "cls_prob")
-      bbox_pred = slim.fully_connected(fc7, self._num_classes * 4, weights_initializer=self._initializer_bbox,
+      bbox_pred = slim.fully_connected(fc7, self._num_classes * 6, weights_initializer=self._initializer_bbox,
                               trainable=self.is_training,
                               activation_fn=None, scope='bbox_pred')
       self._predictions["cls_score"] = cls_score

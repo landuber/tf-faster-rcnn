@@ -20,7 +20,7 @@ def proposal_target_layer(rpn_rois, rpn_scores, gt_boxes, _num_classes):
   classification labels and bounding-box regression targets.
   """
 
-  # Proposal ROIs (0, x1, y1, x2, y2) coming from RPN
+  # Proposal ROIs (0, x1, y1, z1, x2, y2, z2) coming from RPN
   # (i.e., rpn.proposal_layer.ProposalLayer), or any other source
   all_rois = rpn_rois
   all_scores = rpn_scores
@@ -44,11 +44,11 @@ def proposal_target_layer(rpn_rois, rpn_scores, gt_boxes, _num_classes):
     all_rois, all_scores, gt_boxes, fg_rois_per_image,
     rois_per_image, _num_classes)
 
-  rois = rois.reshape(-1, 5)
+  rois = rois.reshape(-1, 7)
   roi_scores = roi_scores.reshape(-1)
   labels = labels.reshape(-1, 1)
-  bbox_targets = bbox_targets.reshape(-1, _num_classes * 4)
-  bbox_inside_weights = bbox_inside_weights.reshape(-1, _num_classes * 4)
+  bbox_targets = bbox_targets.reshape(-1, _num_classes * 6)
+  bbox_inside_weights = bbox_inside_weights.reshape(-1, _num_classes * 6)
   bbox_outside_weights = np.array(bbox_inside_weights > 0).astype(np.float32)
 
   return rois, roi_scores, labels, bbox_targets, bbox_inside_weights, bbox_outside_weights
@@ -67,13 +67,13 @@ def _get_bbox_regression_labels(bbox_target_data, num_classes):
   """
 
   clss = bbox_target_data[:, 0]
-  bbox_targets = np.zeros((clss.size, 4 * num_classes), dtype=np.float32)
+  bbox_targets = np.zeros((clss.size, 6 * num_classes), dtype=np.float32)
   bbox_inside_weights = np.zeros(bbox_targets.shape, dtype=np.float32)
   inds = np.where(clss > 0)[0]
   for ind in inds:
     cls = clss[ind]
-    start = int(4 * cls)
-    end = start + 4
+    start = int(6 * cls)
+    end = start + 6
     bbox_targets[ind, start:end] = bbox_target_data[ind, 1:]
     bbox_inside_weights[ind, start:end] = cfg.TRAIN.BBOX_INSIDE_WEIGHTS
   return bbox_targets, bbox_inside_weights
@@ -83,8 +83,8 @@ def _compute_targets(ex_rois, gt_rois, labels):
   """Compute bounding-box regression targets for an image."""
 
   assert ex_rois.shape[0] == gt_rois.shape[0]
-  assert ex_rois.shape[1] == 4
-  assert gt_rois.shape[1] == 4
+  assert ex_rois.shape[1] == 6
+  assert gt_rois.shape[1] == 6
 
   targets = bbox_transform(ex_rois, gt_rois)
   if cfg.TRAIN.BBOX_NORMALIZE_TARGETS_PRECOMPUTED:
@@ -100,12 +100,14 @@ def _sample_rois(all_rois, all_scores, gt_boxes, fg_rois_per_image, rois_per_ima
   examples.
   """
   # overlaps: (rois x gt_boxes)
+  all_rois_rect = all_rois[:, [1,2,4,5]]
+  gt_boxes_rect = gt_boxes[:, [0,1,3,4]]
   overlaps = bbox_overlaps(
-    np.ascontiguousarray(all_rois[:, 1:5], dtype=np.float),
-    np.ascontiguousarray(gt_boxes[:, :4], dtype=np.float))
+    np.ascontiguousarray(all_rois_rect, dtype=np.float),
+    np.ascontiguousarray(gt_boxes_rect, dtype=np.float))
   gt_assignment = overlaps.argmax(axis=1)
   max_overlaps = overlaps.max(axis=1)
-  labels = gt_boxes[gt_assignment, 4]
+  labels = gt_boxes[gt_assignment, 6]
 
   # Select foreground RoIs as those with >= FG_THRESH overlap
   fg_inds = np.where(max_overlaps >= cfg.TRAIN.FG_THRESH)[0]
@@ -143,7 +145,7 @@ def _sample_rois(all_rois, all_scores, gt_boxes, fg_rois_per_image, rois_per_ima
   roi_scores = all_scores[keep_inds]
 
   bbox_target_data = _compute_targets(
-    rois[:, 1:5], gt_boxes[gt_assignment[keep_inds], :4], labels)
+    rois[:, 1:7], gt_boxes[gt_assignment[keep_inds], :6], labels)
 
   bbox_targets, bbox_inside_weights = \
     _get_bbox_regression_labels(bbox_target_data, num_classes)

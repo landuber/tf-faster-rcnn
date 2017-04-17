@@ -34,8 +34,8 @@ def anchor_target_layer(rpn_cls_score, gt_boxes, im_info, _feat_stride, all_anch
   inds_inside = np.where(
     (all_anchors[:, 0] >= -_allowed_border) &
     (all_anchors[:, 1] >= -_allowed_border) &
-    (all_anchors[:, 2] < im_info[1] + _allowed_border) &  # width
-    (all_anchors[:, 3] < im_info[0] + _allowed_border)  # height
+    (all_anchors[:, 3] < im_info[1] + _allowed_border) &  # width
+    (all_anchors[:, 4] < im_info[0] + _allowed_border)  # height
   )[0]
 
   # keep only inside anchors
@@ -47,14 +47,20 @@ def anchor_target_layer(rpn_cls_score, gt_boxes, im_info, _feat_stride, all_anch
 
   # overlaps between the anchors and the gt boxes
   # overlaps (ex, gt)
+  anchors_rect = anchors[:,[0,1,3,4]]
   overlaps = bbox_overlaps(
-    np.ascontiguousarray(anchors, dtype=np.float),
+    np.ascontiguousarray(anchors_rect, dtype=np.float),
     np.ascontiguousarray(gt_boxes, dtype=np.float))
+  # gt_boxes indices with maximum overlap with a given anchor
   argmax_overlaps = overlaps.argmax(axis=1)
+  # For each anchor find the gt which it has maximum overlap with
   max_overlaps = overlaps[np.arange(len(inds_inside)), argmax_overlaps]
+  # For each gt which anchor index has maximum overlap
   gt_argmax_overlaps = overlaps.argmax(axis=0)
+  # Get the maximum overlap for each gt
   gt_max_overlaps = overlaps[gt_argmax_overlaps,
                              np.arange(overlaps.shape[1])]
+  # Get all the anchor indexes that have maximum overlap with any gt
   gt_argmax_overlaps = np.where(overlaps == gt_max_overlaps)[0]
 
   if not cfg.TRAIN.RPN_CLOBBER_POSITIVES:
@@ -88,19 +94,20 @@ def anchor_target_layer(rpn_cls_score, gt_boxes, im_info, _feat_stride, all_anch
       bg_inds, size=(len(bg_inds) - num_bg), replace=False)
     labels[disable_inds] = -1
 
-  bbox_targets = np.zeros((len(inds_inside), 4), dtype=np.float32)
+  bbox_targets = np.zeros((len(inds_inside), 6), dtype=np.float32)
+  # Compute the delta_x, delta_y, delta_z, delta_w, delta_h, delta_d
   bbox_targets = _compute_targets(anchors, gt_boxes[argmax_overlaps, :])
 
-  bbox_inside_weights = np.zeros((len(inds_inside), 4), dtype=np.float32)
+  bbox_inside_weights = np.zeros((len(inds_inside), 6), dtype=np.float32)
   # only the positive ones have regression targets
   bbox_inside_weights[labels == 1, :] = np.array(cfg.TRAIN.RPN_BBOX_INSIDE_WEIGHTS)
 
-  bbox_outside_weights = np.zeros((len(inds_inside), 4), dtype=np.float32)
+  bbox_outside_weights = np.zeros((len(inds_inside), 6), dtype=np.float32)
   if cfg.TRAIN.RPN_POSITIVE_WEIGHT < 0:
     # uniform weighting of examples (given non-uniform sampling)
     num_examples = np.sum(labels >= 0)
-    positive_weights = np.ones((1, 4)) * 1.0 / num_examples
-    negative_weights = np.ones((1, 4)) * 1.0 / num_examples
+    positive_weights = np.ones((1, 6)) * 1.0 / num_examples
+    negative_weights = np.ones((1, 6)) * 1.0 / num_examples
   else:
     assert ((cfg.TRAIN.RPN_POSITIVE_WEIGHT > 0) &
             (cfg.TRAIN.RPN_POSITIVE_WEIGHT < 1))
@@ -124,18 +131,18 @@ def anchor_target_layer(rpn_cls_score, gt_boxes, im_info, _feat_stride, all_anch
 
   # bbox_targets
   bbox_targets = bbox_targets \
-    .reshape((1, height, width, A * 4))
+    .reshape((1, height, width, A * 6))
 
   rpn_bbox_targets = bbox_targets
   # bbox_inside_weights
   bbox_inside_weights = bbox_inside_weights \
-    .reshape((1, height, width, A * 4))
+    .reshape((1, height, width, A * 6))
 
   rpn_bbox_inside_weights = bbox_inside_weights
 
   # bbox_outside_weights
   bbox_outside_weights = bbox_outside_weights \
-    .reshape((1, height, width, A * 4))
+    .reshape((1, height, width, A * 6))
 
   rpn_bbox_outside_weights = bbox_outside_weights
   return rpn_labels, rpn_bbox_targets, rpn_bbox_inside_weights, rpn_bbox_outside_weights
@@ -159,7 +166,8 @@ def _compute_targets(ex_rois, gt_rois):
   """Compute bounding-box regression targets for an image."""
 
   assert ex_rois.shape[0] == gt_rois.shape[0]
-  assert ex_rois.shape[1] == 4
-  assert gt_rois.shape[1] == 5
+  assert ex_rois.shape[1] == 6
+  # Including the class assigned for the gt_box
+  assert gt_rois.shape[1] == 7
 
-  return bbox_transform(ex_rois, gt_rois[:, :4]).astype(np.float32, copy=False)
+  return bbox_transform(ex_rois, gt_rois[:, :6]).astype(np.float32, copy=False)

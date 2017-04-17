@@ -139,7 +139,7 @@ class Network(object):
                                     [rpn_cls_prob, rpn_bbox_pred, self._im_info, self._mode,
                                      self._feat_stride, self._anchors, self._anchor_scales],
                                     [tf.float32, tf.float32])
-      rois.set_shape([None, 5])
+      rois.set_shape([None, 7])
       rpn_scores.set_shape([None, 1])
 
     return rois, rpn_scores
@@ -161,8 +161,8 @@ class Network(object):
       width = (tf.to_float(bottom_shape[2]) - 1.) * np.float32(self._feat_stride[0])
       x1 = tf.slice(rois, [0, 1], [-1, 1], name="x1") / width
       y1 = tf.slice(rois, [0, 2], [-1, 1], name="y1") / height
-      x2 = tf.slice(rois, [0, 3], [-1, 1], name="x2") / width
-      y2 = tf.slice(rois, [0, 4], [-1, 1], name="y2") / height
+      x2 = tf.slice(rois, [0, 4], [-1, 1], name="x2") / width
+      y2 = tf.slice(rois, [0, 5], [-1, 1], name="y2") / height
       # Won't be backpropagated to rois anyway, but to save time
       bboxes = tf.stop_gradient(tf.concat([y1, x1, y2, x2], axis=1))
       pre_pool_size = cfg.POOLING_SIZE * 2
@@ -181,9 +181,9 @@ class Network(object):
         [tf.float32, tf.float32, tf.float32, tf.float32])
 
       rpn_labels.set_shape([1, 1, None, None])
-      rpn_bbox_targets.set_shape([1, None, None, self._num_scales * 12])
-      rpn_bbox_inside_weights.set_shape([1, None, None, self._num_scales * 12])
-      rpn_bbox_outside_weights.set_shape([1, None, None, self._num_scales * 12])
+      rpn_bbox_targets.set_shape([1, None, None, self._num_scales * 3 * 6])
+      rpn_bbox_inside_weights.set_shape([1, None, None, self._num_scales * 3 * 6])
+      rpn_bbox_outside_weights.set_shape([1, None, None, self._num_scales * 3 * 6])
 
       rpn_labels = tf.to_int32(rpn_labels, name="to_int32")
       self._anchor_targets['rpn_labels'] = rpn_labels
@@ -202,12 +202,12 @@ class Network(object):
         [rois, roi_scores, self._gt_boxes, self._num_classes],
         [tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32])
 
-      rois.set_shape([cfg.TRAIN.BATCH_SIZE, 5])
+      rois.set_shape([cfg.TRAIN.BATCH_SIZE, 7])
       roi_scores.set_shape([cfg.TRAIN.BATCH_SIZE])
       labels.set_shape([cfg.TRAIN.BATCH_SIZE, 1])
-      bbox_targets.set_shape([cfg.TRAIN.BATCH_SIZE, self._num_classes * 4])
-      bbox_inside_weights.set_shape([cfg.TRAIN.BATCH_SIZE, self._num_classes * 4])
-      bbox_outside_weights.set_shape([cfg.TRAIN.BATCH_SIZE, self._num_classes * 4])
+      bbox_targets.set_shape([cfg.TRAIN.BATCH_SIZE, self._num_classes * 6])
+      bbox_inside_weights.set_shape([cfg.TRAIN.BATCH_SIZE, self._num_classes * 6])
+      bbox_outside_weights.set_shape([cfg.TRAIN.BATCH_SIZE, self._num_classes * 6])
 
       self._proposal_targets['rois'] = rois
       self._proposal_targets['labels'] = tf.to_int32(labels, name="to_int32")
@@ -227,7 +227,7 @@ class Network(object):
                                           [height, width,
                                            self._feat_stride, self._anchor_scales],
                                           [tf.float32, tf.int32], name="generate_anchors")
-      anchors.set_shape([None, 4])
+      anchors.set_shape([None, 6])
       anchor_length.set_shape([])
       self._anchors = anchors
       self._anchor_length = anchor_length

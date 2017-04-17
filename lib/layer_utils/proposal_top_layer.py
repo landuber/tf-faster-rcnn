@@ -24,7 +24,7 @@ def proposal_top_layer(rpn_cls_prob, rpn_bbox_pred, im_info, _feat_stride, ancho
 
   scores = rpn_cls_prob[:, :, :, num_anchors:]
 
-  rpn_bbox_pred = rpn_bbox_pred.reshape((-1, 4))
+  rpn_bbox_pred = rpn_bbox_pred.reshape((-1, 6))
   scores = scores.reshape((-1, 1))
 
   length = scores.shape[0]
