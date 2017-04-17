@@ -111,8 +111,8 @@ __C.TRAIN.BBOX_INSIDE_WEIGHTS = (1.0, 1.0, 1.0, 1.0, 1.0, 1.0)
 # Normalize the targets using "precomputed" (or made up) means and stdevs
 # (BBOX_NORMALIZE_TARGETS must also be True)
 __C.TRAIN.BBOX_NORMALIZE_TARGETS_PRECOMPUTED = True
-__C.TRAIN.BBOX_NORMALIZE_MEANS = (0.0, 0.0, 0.0, 0.0)
-__C.TRAIN.BBOX_NORMALIZE_STDS = (0.1, 0.1, 0.2, 0.2)
+__C.TRAIN.BBOX_NORMALIZE_MEANS = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+__C.TRAIN.BBOX_NORMALIZE_STDS = (0.1, 0.1, 0.1, 0.2, 0.2, 0.2)
 
 # Train using these proposals
 __C.TRAIN.PROPOSAL_METHOD = 'selective_search'
@@ -142,7 +142,7 @@ __C.TRAIN.RPN_POST_NMS_TOP_N = 2000
 # Proposal height and width both need to be greater than RPN_MIN_SIZE (at orig image scale)
 # __C.TRAIN.RPN_MIN_SIZE = 16
 # Deprecated (outside weights)
-__C.TRAIN.RPN_BBOX_INSIDE_WEIGHTS = (1.0, 1.0, 1.0, 1.0)
+__C.TRAIN.RPN_BBOX_INSIDE_WEIGHTS = (1.0, 1.0, 1.0, 1.0, 1.0, 1.0)
 # Give the positive RPN examples weight of p * 1 / {num positives}
 # and give negatives a weight of (1 - p)
 # Set to -1.0 to use uniform example weighting

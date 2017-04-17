@@ -209,7 +209,7 @@ class kitti_voc(imdb):
         num_objs = len(objs)
 
         boxes = np.zeros((num_objs, 4), dtype=np.int32)
-        top_boxes = np.zeros((num_objs, 4), dtype=np.int32)
+        top_boxes = np.zeros((num_objs, 6), dtype=np.int32)
         dimensions = np.zeros((num_objs, 3), dtype=np.float32)
         locations = np.zeros((num_objs, 3), dtype=np.float32)
         rotations_y = np.zeros((num_objs), dtype=np.float32)

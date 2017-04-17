@@ -70,7 +70,7 @@ def _whctrs(anchor):
   return w, h, l, x_ctr, y_ctr, z_ctr
 
 
-def _mkanchors(ws, hs, x_ctr, y_ctr, z_ctr):
+def _mkanchors(ws, hs, ds, x_ctr, y_ctr, z_ctr):
   """
   Given a vector of widths (ws) and heights (hs) around a center
   (x_ctr, y_ctr), output a set of anchors (windows).
@@ -78,6 +78,7 @@ def _mkanchors(ws, hs, x_ctr, y_ctr, z_ctr):
 
   ws = ws[:, np.newaxis]
   hs = hs[:, np.newaxis]
+  ds = ds[:, np.newaxis]
   anchors = np.hstack((x_ctr - 0.5 * (ws - 1),
                        y_ctr - 0.5 * (hs - 1),
                        z_ctr - 0.5 * (ds - 1),

@@ -305,7 +305,7 @@ class Network(object):
     channel = Zn + 2
     self._image = tf.placeholder(tf.float32, shape=[self._batch_size, None, None, channel])
     self._im_info = tf.placeholder(tf.float32, shape=[self._batch_size, 3])
-    self._gt_boxes = tf.placeholder(tf.float32, shape=[None, 5])
+    self._gt_boxes = tf.placeholder(tf.float32, shape=[None, 7])
     self._tag = tag
 
     self._num_classes = num_classes
