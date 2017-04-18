@@ -9,13 +9,14 @@ from distutils.dir_util import copy_tree
 import numpy as np
 import math
 import shutil
+import time
 
 TOP_Y_MIN=-20  #40
 TOP_Y_MAX=+20
 TOP_X_MIN=0
 TOP_X_MAX=40   #70.4
 TOP_Z_MIN=-2    ###<todo> determine the correct values!
-TOP_Z_MAX= 2
+TOP_Z_MAX=2
 
 TOP_X_DIVISION=0.1  #0.1
 TOP_Y_DIVISION=0.1
@@ -319,6 +320,52 @@ def _draw_on_image(img, objs, class_sets_dict):
     return img
 
 
+def lidar_to_tensor(lidar):
+    start = time.time()
+    X0, Xn = 0, int((TOP_X_MAX-TOP_X_MIN)/TOP_X_DIVISION)
+    Y0, Yn = 0, int((TOP_Y_MAX-TOP_Y_MIN)/TOP_Y_DIVISION)
+    Z0, Zn = 0, int((TOP_Z_MAX-TOP_Z_MIN)/TOP_Z_DIVISION)
+    width  = Yn - Y0
+    height   = Xn - X0
+    channel = Zn - Z0  + 2
+
+    pxs=lidar[:,0]
+    pys=lidar[:,1]
+    pzs=lidar[:,2]
+    prs=lidar[:,3]
+
+    qxs=((pxs-TOP_X_MIN)/TOP_X_DIVISION).astype(np.int32)
+    qys=((pys-TOP_Y_MIN)/TOP_Y_DIVISION).astype(np.int32)
+    qzs=((pzs-TOP_Z_MIN)/TOP_Z_DIVISION).astype(np.int32)
+
+    q_lidar = np.vstack((qxs, qys, qzs, pzs, prs)).T
+    indices = np.where((q_lidar[:,0] < Xn) & (q_lidar[:,0] >= X0) & (q_lidar[:, 1] < Yn) & (q_lidar[:, 1] >= Y0) & (q_lidar[:,2] < Zn) & (q_lidar[:,2] >= Z0))[0]
+    q_lidar = q_lidar[indices, :]
+    print('height,width,channel=%d,%d,%d'%(height,width,channel))
+    top = np.zeros(shape=(height,width,channel), dtype=np.float32)
+
+    for l in q_lidar:
+        yy,xx,zz = -int(l[0]-X0),-int(l[1]-Y0),int(l[2]-Z0)
+        height = max(0,l[3]-TOP_Z_MIN)
+        top[yy,xx,Zn+1] = top[yy,xx,Zn+1] + 1
+        if top[yy, xx, zz] < height:
+            top[yy,xx,zz] = height
+        if top[yy, xx, Zn] < l[4]:
+            top[yy,xx,Zn] = l[4]
+
+    top[:,:,Zn+1] = np.log(top[:,:,Zn+1]+1)/math.log(64)
+    end = time.time()
+    print(end-start)
+
+    if 1:
+        top_image = np.sum(top,axis=2)
+        top_image = top_image-np.min(top_image)
+        top_image = (top_image/np.max(top_image)*255)
+        top_image = np.dstack((top_image, top_image, top_image)).astype(np.uint8)
+
+    return top, top_image
+
+
 def lidar_to_top(lidar):
 
     X0, Xn = 0, int((TOP_X_MAX-TOP_X_MIN)/TOP_X_DIVISION)
@@ -427,7 +474,7 @@ if __name__ == '__main__':
 
         files = glob.glob(os.path.join(_labeldir, '*.txt'))
         files.sort()
-        for file in files[:30]:
+        for file in files[:]:
             path, basename = os.path.split(file)
             stem, ext = os.path.splitext(basename)
             with open(file, 'r') as f:
@@ -449,14 +496,15 @@ if __name__ == '__main__':
             lidar = np.fromfile(lidar_file, dtype=np.float32)
             lidar = lidar.reshape((-1, 4))
             print('discretizing started')
-            lidar, top = lidar_to_top(lidar)
+            #lidar, top = lidar_to_top(lidar)
+            lidar, top = lidar_to_tensor(lidar)
             print('discretizing ended')
             np.save(lidar2_file,lidar)
 
             if _draw:
                 top = _draw_on_image(top, objs, class_sets_dict)
 
-            #cv2.imwrite(lidar3_file,top)
+            cv2.imwrite(lidar3_file,top)
             cv2.imwrite(os.path.join(_dest_img_dir, stem + '.jpg'), img)
             xmlfile = os.path.join(_dest_label_dir, stem + '.xml')
             with open(xmlfile, 'w') as f:
