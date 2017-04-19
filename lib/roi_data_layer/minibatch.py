@@ -31,10 +31,9 @@ def get_minibatch(roidb, num_classes):
 
   # Get the input image blob, formatted for caffe
   im_blob, im_scales = _get_image_blob(roidb, random_scale_inds)
-  lidar_blob = _get_lidar_blob(roidb)
+  top_lidar_blob, front_lidar_blob = _get_lidar_blob(roidb)
 
-  #blobs = {'data': im_blob}
-  blobs = {'data': lidar_blob}
+  blobs = {'image': im_blob, 'top_lidar': top_lidar_blob, 'front_lidar': front_lidar_blob}
 
   assert len(im_scales) == 1, "Single batch only"
   assert len(roidb) == 1, "Single batch only"
@@ -54,11 +53,14 @@ def get_minibatch(roidb, num_classes):
   gt_boxes[:, 6] = roidb[0]['gt_classes'][gt_inds]
   #blobs['gt_boxes'] = gt_boxes
   blobs['gt_boxes'] = gt_boxes
-  #blobs['im_info'] = np.array(
-  #  [[im_blob.shape[1], im_blob.shape[2], im_scales[0]]],
-  #  dtype=np.float32)
   blobs['im_info'] = np.array(
-    [[lidar_blob.shape[1], lidar_blob.shape[2], lidar_blob.shape[3]]],
+    [[im_blob.shape[1], im_blob.shape[2], im_scales[0]]],
+    dtype=np.float32)
+  blobs['top_lidar_info'] = np.array(
+    [[top_lidar_blob.shape[1], top_lidar_blob.shape[2], top_lidar_blob.shape[3]]],
+    dtype=np.float32)
+  blobs['front_lidar_info'] = np.array(
+    [[front_lidar_blob.shape[1], front_lidar_blob.shape[2], front_lidar_blob.shape[3]]],
     dtype=np.float32)
 
   return blobs
@@ -69,20 +71,20 @@ def _get_lidar_blob(roidb):
   """
   num_lidars = len(roidb)
   processed_lidars = []
-  im_scales = []
   for i in range(num_lidars):
-    top_lidar = np.load(roidb[i]['lidar'])
-    processed_lidars.append(top_lidar)
+    lidar = np.fromfile(roidb[i]['lidar'], dtype=np.float32)
+    lidar = lidar.reshape((-1, 4))
+    front_lidar = np.empty_like(lidar)
+    front_lidar[:] = lidar
+    top_lidar = lidar_to_top_tensor(lidar)
+    front_lidar = lidar_to_front_tensor(front_lidar)
+    processed_lidars.append((top_lidar, front_lidar))
 
   # Create a blob to hold the input images
-  blob = lidar_list_to_blob(processed_lidars)
-
-  return blob
+  return lidar_list_to_blob(processed_lidars)
 
 
-## lidar to top ##
-def lidar_to_top(lidar):
-
+def lidar_to_top_tensor(lidar):
     X0, Xn = 0, int((TOP_X_MAX-TOP_X_MIN)/TOP_X_DIVISION)
     Y0, Yn = 0, int((TOP_Y_MAX-TOP_Y_MIN)/TOP_Y_DIVISION)
     Z0, Zn = 0, int((TOP_Z_MAX-TOP_Z_MIN)/TOP_Z_DIVISION)
@@ -99,67 +101,72 @@ def lidar_to_top(lidar):
     qys=((pys-TOP_Y_MIN)/TOP_Y_DIVISION).astype(np.int32)
     qzs=((pzs-TOP_Z_MIN)/TOP_Z_DIVISION).astype(np.int32)
 
-    print('height,width,channel=%d,%d,%d'%(height,width,channel))
+    q_lidar = np.vstack((qxs, qys, qzs, pzs, prs)).T
+    indices = np.where((q_lidar[:,0] < Xn) & (q_lidar[:,0] >= X0) & (q_lidar[:, 1] < Yn) & (q_lidar[:, 1] >= Y0) & (q_lidar[:,2] < Zn) & (q_lidar[:,2] >= Z0))[0]
+    q_lidar = q_lidar[indices, :]
+    #print('height,width,channel=%d,%d,%d'%(height,width,channel))
     top = np.zeros(shape=(height,width,channel), dtype=np.float32)
 
-    ## start to make top  here !!!
-    for z in range(Z0,Zn):
-        iz = np.where (qzs==z)
-        for y in range(Y0,Yn):
-            iy  = np.where (qys==y)
-            iyz = np.intersect1d(iy, iz)
+    for l in q_lidar:
+        yy,xx,zz = -int(l[0]-X0),-int(l[1]-Y0),int(l[2]-Z0)
+        height = max(0,l[3]-TOP_Z_MIN)
+        top[yy,xx,Zn+1] = top[yy,xx,Zn+1] + 1
+        if top[yy, xx, zz] < height:
+            top[yy,xx,zz] = height
+        if top[yy, xx, Zn] < l[4]:
+            top[yy,xx,Zn] = l[4]
 
-            for x in range(X0,Xn):
-                #print('', end='\r',flush=True)
-                #print(z,y,z,flush=True)
-
-                ix = np.where (qxs==x)
-                idx = np.intersect1d(ix,iyz)
-
-                if len(idx)>0:
-                    yy,xx,zz = -(x-X0),-(y-Y0),z-Z0
-
-
-                    #height per slice
-                    max_height = max(0,np.max(pzs[idx])-TOP_Z_MIN)
-                    top[yy,xx,zz]=max_height
-
-                    #intensity
-                    max_intensity = np.max(prs[idx])
-                    top[yy,xx,Zn]=max_intensity
-
-                    #density
-                    count = len(idx)
-                    top[yy,xx,Zn+1]+=count
-
-                pass
-            pass
-        pass
     top[:,:,Zn+1] = np.log(top[:,:,Zn+1]+1)/math.log(64)
 
-    if 0:
-        top_image = np.sum(top,axis=2)
-        top_image = top_image-np.min(top_image)
-        top_image = (top_image/np.max(top_image)*255)
-        top_image = np.dstack((top_image, top_image, top_image)).astype(np.uint8)
+
+    return top, top_image
+
+def lidar_to_front_tensor(lidar):
+    THETA0,THETAn = 0, int((HORIZONTAL_MAX-HORIZONTAL_MIN)/HORIZONTAL_RESOLUTION)
+    PHI0, PHIn = 0, int((VERTICAL_MAX-VERTICAL_MIN)/VERTICAL_RESOLUTION)
+    indices = np.where((lidar[:, 0] > 0.0))[0]
+
+    width = THETAn - THETA0
+    height = PHIn - PHI0
+
+    pxs=lidar[indices,0]
+    pys=lidar[indices,1]
+    pzs=lidar[indices,2]
+    prs=lidar[indices,3]
+
+    cs = ((np.arctan2(pxs, -pys) - HORIZONTAL_MIN) / HORIZONTAL_RESOLUTION).astype(np.int32)
+    rs = ((np.arctan2(pzs, np.hypot(pxs, pys)) - VERTICAL_MIN) / VERTICAL_RESOLUTION).astype(np.int32)
+    ds = np.hypot(pxs, pys)
 
 
-    if 0: #unprocess
-        top_image = np.zeros((height,width,3),dtype=np.float32)
+    rcs = np.vstack((rs, cs, pzs, ds, prs)).T
+    indices = np.where((rcs[:,0] < PHIn) & (rcs[:,0] >= PHI0) & (rcs[:, 1] < THETAn) & (rcs[:, 1] >= THETA0))[0]
+    rcs = rcs[indices, :]
+    print('height,width,channel=%d,%d,%d'%(height,width,3))
+    front = np.zeros(shape=(height,width,3), dtype=np.float32)
+    front[:, 0] = -1.73
 
-        num = len(lidar)
-        for n in range(num):
-            x,y = qxs[n],qys[n]
-            if x>=0 and x <width and y>0 and y<height:
-                top_image[y,x,:] += 1
+    for rc in rcs:
+        yy, xx = -int(rc[0] - PHI0), -int(rc[1] - THETA0) 
+        # rc[2] => height
+        if front[yy,xx,0] < rc[2]:
+            front[yy,xx, 0] = rc[2]
+        # rc[3] => distance
+        if front[yy,xx,1] < rc[3]:
+            front[yy,xx,1] = rc[3]
+        # rc[4] => intensity
+        if front[yy,xx,2] < rc[4]:
+            front[yy,xx,2] = rc[4]
 
-        max_value=np.max(np.log(top_image+0.001))
-        top_image = top_image/max_value *255
-        top_image=top_image.astype(dtype=np.uint8)
-
-
-    return top
-
+    front[:, :, 0] = front[:, :, 0]-np.min(front[:, :, 0])
+    front[:, :, 0] = (front[:, :, 0]/np.max(front[:, :, 0])*255).astype(np.uint8)
+    front[:, :, 1] = front[:, :, 1]-np.min(front[:, :, 1])
+    front[:, :, 1] = (front[:, :, 1]/np.max(front[:, :, 1])*255).astype(np.uint8)
+    front[:, :, 2] = front[:, :, 2]-np.min(front[:, :, 2])
+    front[:, :, 2] = (front[:, :, 2]/np.max(front[:, :, 2])*255).astype(np.uint8)
+    front = np.dstack((front[:,:, 0], front[:,:, 1], front[:,:, 2])).astype(np.uint8)
+        
+    return front
 
 def _get_image_blob(roidb, scale_inds):
   """Builds an input blob from the images in the roidb at the specified

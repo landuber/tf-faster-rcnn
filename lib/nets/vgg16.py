@@ -53,7 +53,7 @@ class vgg16(Network):
       return self._predictions["rois"], self._predictions["cls_prob"], self._predictions["bbox_pred"]
 
   def build_rpn_bv(self):
-      net = slim.repeat(self._image, 2, slim.conv2d, 64, [3, 3],
+      net = slim.repeat(self._top_lidar, 2, slim.conv2d, 64, [3, 3],
                         trainable=self.is_training, scope='conv1')
       net = slim.max_pool2d(net, [2, 2], padding='SAME', scope='pool1')
       net = slim.repeat(net, 2, slim.conv2d, 128, [3, 3],

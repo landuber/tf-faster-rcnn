@@ -69,7 +69,7 @@ class Network(object):
     
     return tf.summary.image('ground_truth', image)
 
-  def _add_image_summary(self, image, boxes):
+  def _add_top_lidar_summary(self, image, boxes):
     # add back mean
     image += cfg.PIXEL_MEANS
     # bgr to rgb (opencv uses bgr)
@@ -125,7 +125,7 @@ class Network(object):
   def _proposal_top_layer(self, rpn_cls_prob, rpn_bbox_pred, name):
     with tf.variable_scope(name) as scope:
       rois, rpn_scores = tf.py_func(proposal_top_layer,
-                                    [rpn_cls_prob, rpn_bbox_pred, self._im_info,
+                                    [rpn_cls_prob, rpn_bbox_pred, self._top_lidar_info,
                                      self._feat_stride, self._anchors, self._anchor_scales],
                                     [tf.float32, tf.float32])
       rois.set_shape([cfg.TEST.RPN_TOP_N, 5])
@@ -136,7 +136,7 @@ class Network(object):
   def _proposal_layer(self, rpn_cls_prob, rpn_bbox_pred, name):
     with tf.variable_scope(name) as scope:
       rois, rpn_scores = tf.py_func(proposal_layer,
-                                    [rpn_cls_prob, rpn_bbox_pred, self._im_info, self._mode,
+                                    [rpn_cls_prob, rpn_bbox_pred, self._top_lidar_info, self._mode,
                                      self._feat_stride, self._anchors, self._anchor_scales],
                                     [tf.float32, tf.float32])
       rois.set_shape([None, 7])
@@ -177,7 +177,7 @@ class Network(object):
     with tf.variable_scope(name) as scope:
       rpn_labels, rpn_bbox_targets, rpn_bbox_inside_weights, rpn_bbox_outside_weights = tf.py_func(
         anchor_target_layer,
-        [rpn_cls_score, self._gt_boxes, self._im_info, self._feat_stride, self._anchors, self._anchor_scales],
+        [rpn_cls_score, self._gt_boxes, self._top_lidar_info, self._feat_stride, self._anchors, self._anchor_scales],
         [tf.float32, tf.float32, tf.float32, tf.float32])
 
       rpn_labels.set_shape([1, 1, None, None])
@@ -221,8 +221,8 @@ class Network(object):
 
   def _anchor_component(self):
     with tf.variable_scope('ANCHOR_' + self._tag) as scope:
-      height = tf.to_int32(tf.ceil(self._im_info[0, 0] / 4.))
-      width = tf.to_int32(tf.ceil(self._im_info[0, 1] / 4.))
+      height = tf.to_int32(tf.ceil(self._top_lidar_info[0, 0] / 4.))
+      width = tf.to_int32(tf.ceil(self._top_lidar_info[0, 1] / 4.))
       anchors, anchor_length = tf.py_func(generate_anchors_pre,
                                           [height, width,
                                            self._feat_stride, self._anchor_scales],
@@ -303,8 +303,10 @@ class Network(object):
     # calculate the depth of the input tensor dyanamically
     Zn = int((TOP_Z_MAX-TOP_Z_MIN)/TOP_Z_DIVISION)
     channel = Zn + 2
-    self._image = tf.placeholder(tf.float32, shape=[self._batch_size, None, None, channel])
-    self._im_info = tf.placeholder(tf.float32, shape=[self._batch_size, 3])
+    self._top_lidar = tf.placeholder(tf.float32, shape=[self._batch_size, None, None, channel])
+    self._front_lidar = tf.placeholder(tf.float32, shape=[self._batch_size, None, None, 3])
+    self._image = tf.placeholder(tf.float32, shape=[self._batch_size, None, None, 3])
+    self._top_lidar_info = tf.placeholder(tf.float32, shape=[self._batch_size, 3])
     self._gt_boxes = tf.placeholder(tf.float32, shape=[None, 7])
     self._tag = tag
 
@@ -344,8 +346,8 @@ class Network(object):
 
     val_summaries = []
     with tf.device("/cpu:0"):
-      #val_summaries.append(self._add_image_summary(self._image, self._gt_boxes))
-      val_summaries.append(self._add_lidar_summary(self._image, self._gt_boxes))
+      #val_summaries.append(self._add_top_lidar_summary(self._image, self._gt_boxes))
+      val_summaries.append(self._add_lidar_summary(self._top_lidar, self._gt_boxes))
       for key, var in self._event_summaries.items():
         val_summaries.append(tf.summary.scalar(key, var))
       for key, var in self._score_summaries.items():
@@ -363,14 +365,14 @@ class Network(object):
 
   # only useful during testing mode
   def extract_conv5(self, sess, image):
-    feed_dict = {self._image: image}
+    feed_dict = {self._top_lidar: image}
     feat = sess.run(self._layers["conv5_3"], feed_dict=feed_dict)
     return feat
 
   # only useful during testing mode
-  def test_image(self, sess, image, im_info):
-    feed_dict = {self._image: image,
-                 self._im_info: im_info}
+  def test_top_lidar(self, sess, image, top_lidar_info):
+    feed_dict = {self._top_lidar: image,
+                 self._top_lidar_info: top_lidar_info}
     cls_score, cls_prob, bbox_pred, rois = sess.run([self._predictions["cls_score"],
                                                      self._predictions['cls_prob'],
                                                      self._predictions['bbox_pred'],
@@ -379,14 +381,14 @@ class Network(object):
     return cls_score, cls_prob, bbox_pred, rois
 
   def get_summary(self, sess, blobs):
-    feed_dict = {self._image: blobs['data'], self._im_info: blobs['im_info'], \
+    feed_dict = {self._top_lidar: blobs['top_lidar'], self._top_lidar_info: blobs['top_lidar_info'], \
                  self._gt_boxes: blobs['gt_boxes']}
     summary = sess.run(self._summary_op_val, feed_dict=feed_dict)
 
     return summary
 
   def train_step(self, sess, blobs, train_op):
-    feed_dict = {self._image: blobs['data'], self._im_info: blobs['im_info'],
+    feed_dict = {self._top_lidar: blobs['top_lidar'], self._top_lidar_info: blobs['top_lidar_info'],
                  self._gt_boxes: blobs['gt_boxes']}
     rpn_loss_cls, rpn_loss_box, loss_cls, loss_box, loss, _ = sess.run([self._losses["rpn_cross_entropy"],
                                                                         self._losses['rpn_loss_box'],
@@ -398,7 +400,7 @@ class Network(object):
     return rpn_loss_cls, rpn_loss_box, loss_cls, loss_box, loss
 
   def train_step_with_summary(self, sess, blobs, train_op):
-    feed_dict = {self._image: blobs['data'], self._im_info: blobs['im_info'],
+    feed_dict = {self._top_lidar: blobs['top_lidar'], self._top_lidar_info: blobs['top_lidar_info'],
                  self._gt_boxes: blobs['gt_boxes']}
     rpn_loss_cls, rpn_loss_box, loss_cls, loss_box, loss, summary, _ = sess.run([self._losses["rpn_cross_entropy"],
                                                                                  self._losses['rpn_loss_box'],
@@ -411,7 +413,7 @@ class Network(object):
     return rpn_loss_cls, rpn_loss_box, loss_cls, loss_box, loss, summary
 
   def train_step_no_return(self, sess, blobs, train_op):
-    feed_dict = {self._image: blobs['data'], self._im_info: blobs['im_info'],
+    feed_dict = {self._top_lidar: blobs['top_lidar'], self._top_lidar_info: blobs['top_lidar_info'],
                  self._gt_boxes: blobs['gt_boxes']}
     sess.run([train_op], feed_dict=feed_dict)
 

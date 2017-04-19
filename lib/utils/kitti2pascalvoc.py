@@ -11,16 +11,26 @@ import math
 import shutil
 import time
 
-TOP_Y_MIN=-20  #40
-TOP_Y_MAX=+20
+TOP_Y_MIN=-40  #40
+TOP_Y_MAX=+40
 TOP_X_MIN=0
-TOP_X_MAX=40   #70.4
+TOP_X_MAX=70.4   #70.4
 TOP_Z_MIN=-2    ###<todo> determine the correct values!
 TOP_Z_MAX=2
 
 TOP_X_DIVISION=0.1  #0.1
 TOP_Y_DIVISION=0.1
 TOP_Z_DIVISION=0.1
+
+
+HORIZONTAL_FOV = math.pi
+HORIZONTAL_MAX = HORIZONTAL_FOV
+HORIZONTAL_MIN = 0.0
+VERTICAL_FOV = math.pi * 26.8 / 180
+VERTICAL_MAX = VERTICAL_FOV / 2
+VERTICAL_MIN = -VERTICAL_FOV / 2
+HORIZONTAL_RESOLUTION = HORIZONTAL_FOV/512 #
+VERTICAL_RESOLUTION = VERTICAL_FOV / 64 # 26.8 / 64
 
 
 #rgb camera
@@ -320,7 +330,57 @@ def _draw_on_image(img, objs, class_sets_dict):
     return img
 
 
-def lidar_to_tensor(lidar):
+def lidar_to_front_tensor(lidar):
+    THETA0,THETAn = 0, int((HORIZONTAL_MAX-HORIZONTAL_MIN)/HORIZONTAL_RESOLUTION)
+    PHI0, PHIn = 0, int((VERTICAL_MAX-VERTICAL_MIN)/VERTICAL_RESOLUTION)
+    indices = np.where((lidar[:, 0] > 0.0))[0]
+
+    width = THETAn - THETA0
+    height = PHIn - PHI0
+
+    pxs=lidar[indices,0]
+    pys=lidar[indices,1]
+    pzs=lidar[indices,2]
+    prs=lidar[indices,3]
+
+    cs = ((np.arctan2(pxs, -pys) - HORIZONTAL_MIN) / HORIZONTAL_RESOLUTION).astype(np.int32)
+    rs = ((np.arctan2(pzs, np.hypot(pxs, pys)) - VERTICAL_MIN) / VERTICAL_RESOLUTION).astype(np.int32)
+    ds = np.hypot(pxs, pys)
+
+
+    rcs = np.vstack((rs, cs, pzs, ds, prs)).T
+    indices = np.where((rcs[:,0] < PHIn) & (rcs[:,0] >= PHI0) & (rcs[:, 1] < THETAn) & (rcs[:, 1] >= THETA0))[0]
+    rcs = rcs[indices, :]
+    print('height,width,channel=%d,%d,%d'%(height,width,3))
+    front = np.zeros(shape=(height,width,3), dtype=np.float32)
+    front[:, 0] = -1.73
+
+    for rc in rcs:
+        yy, xx = -int(rc[0] - PHI0), -int(rc[1] - THETA0) 
+        # rc[2] => height
+        if front[yy,xx,0] < rc[2]:
+            front[yy,xx, 0] = rc[2]
+        # rc[3] => distance
+        if front[yy,xx,1] < rc[3]:
+            front[yy,xx,1] = rc[3]
+        # rc[4] => intensity
+        if front[yy,xx,2] < rc[4]:
+            front[yy,xx,2] = rc[4]
+
+    front[:, :, 0] = front[:, :, 0]-np.min(front[:, :, 0])
+    front[:, :, 0] = (front[:, :, 0]/np.max(front[:, :, 0])*255).astype(np.uint8)
+    front[:, :, 1] = front[:, :, 1]-np.min(front[:, :, 1])
+    front[:, :, 1] = (front[:, :, 1]/np.max(front[:, :, 1])*255).astype(np.uint8)
+    front[:, :, 2] = front[:, :, 2]-np.min(front[:, :, 2])
+    front[:, :, 2] = (front[:, :, 2]/np.max(front[:, :, 2])*255).astype(np.uint8)
+    front = np.dstack((front[:,:, 0], front[:,:, 1], front[:,:, 2])).astype(np.uint8)
+        
+    return front
+
+
+
+
+def lidar_to_top_tensor(lidar):
     start = time.time()
     X0, Xn = 0, int((TOP_X_MAX-TOP_X_MIN)/TOP_X_DIVISION)
     Y0, Yn = 0, int((TOP_Y_MAX-TOP_Y_MIN)/TOP_Y_DIVISION)
@@ -465,7 +525,7 @@ if __name__ == '__main__':
         """
         class_sets = ('pedestrian', 'cyclist', 'car', 'person_sitting', 'van', 'truck', 'tram', 'misc', 'dontcare')
         """
-        #copy_tree(_lidardir, _dest_lidar_dir, update=1)
+        copy_tree(_lidardir, _dest_lidar_dir, update=1)
         class_sets = ('pedestrian', 'cyclist', 'car', 'dontcare')
         class_sets_dict = dict((k, i) for i, k in enumerate(class_sets))
         allclasses = {}
@@ -487,24 +547,9 @@ if __name__ == '__main__':
             img_size = img.shape
             doc, objs = generate_xml(stem, lines, calib_lines, img_size, class_sets=class_sets, doncateothers=_doncateothers)
 
-            # Lidar related code
-            src_lidar_file = os.path.join(_lidardir, stem + '.bin')
-            lidar_file = os.path.join(_dest_lidar_dir, stem + '.bin')
-            shutil.copy2(src_lidar_file, lidar_file)
-            lidar2_file = os.path.join(_dest_lidar_dir, stem + '.npy')
-            lidar3_file = os.path.join(_dest_lidar_dir, stem + '.png')
-            lidar = np.fromfile(lidar_file, dtype=np.float32)
-            lidar = lidar.reshape((-1, 4))
-            print('discretizing started')
-            #lidar, top = lidar_to_top(lidar)
-            lidar, top = lidar_to_tensor(lidar)
-            print('discretizing ended')
-            np.save(lidar2_file,lidar)
-
             if _draw:
                 top = _draw_on_image(top, objs, class_sets_dict)
 
-            cv2.imwrite(lidar3_file,top)
             cv2.imwrite(os.path.join(_dest_img_dir, stem + '.jpg'), img)
             xmlfile = os.path.join(_dest_label_dir, stem + '.xml')
             with open(xmlfile, 'w') as f:
