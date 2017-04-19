@@ -381,15 +381,16 @@ class Network(object):
     return cls_score, cls_prob, bbox_pred, rois
 
   def get_summary(self, sess, blobs):
-    feed_dict = {self._top_lidar: blobs['top_lidar'], self._top_lidar_info: blobs['top_lidar_info'], \
-                 self._gt_boxes: blobs['gt_boxes']}
+    feed_dict = {self._top_lidar: blobs['top_lidar'], self._front_lidar: blobs['front_lidar'], self._image: blobs['image'], \
+            self._top_lidar_info: blobs['top_lidar_info'], self._gt_boxes: blobs['gt_boxes']}
+
     summary = sess.run(self._summary_op_val, feed_dict=feed_dict)
 
     return summary
 
   def train_step(self, sess, blobs, train_op):
-    feed_dict = {self._top_lidar: blobs['top_lidar'], self._top_lidar_info: blobs['top_lidar_info'],
-                 self._gt_boxes: blobs['gt_boxes']}
+    feed_dict = {self._top_lidar: blobs['top_lidar'], self._front_lidar: blobs['front_lidar'], self._image: blobs['image'], \
+            self._top_lidar_info: blobs['top_lidar_info'], self._gt_boxes: blobs['gt_boxes']}
     rpn_loss_cls, rpn_loss_box, loss_cls, loss_box, loss, _ = sess.run([self._losses["rpn_cross_entropy"],
                                                                         self._losses['rpn_loss_box'],
                                                                         self._losses['cross_entropy'],
@@ -400,8 +401,8 @@ class Network(object):
     return rpn_loss_cls, rpn_loss_box, loss_cls, loss_box, loss
 
   def train_step_with_summary(self, sess, blobs, train_op):
-    feed_dict = {self._top_lidar: blobs['top_lidar'], self._top_lidar_info: blobs['top_lidar_info'],
-                 self._gt_boxes: blobs['gt_boxes']}
+    feed_dict = {self._top_lidar: blobs['top_lidar'], self._front_lidar: blobs['front_lidar'], self._image: blobs['image'], \
+            self._top_lidar_info: blobs['top_lidar_info'], self._gt_boxes: blobs['gt_boxes']}
     rpn_loss_cls, rpn_loss_box, loss_cls, loss_box, loss, summary, _ = sess.run([self._losses["rpn_cross_entropy"],
                                                                                  self._losses['rpn_loss_box'],
                                                                                  self._losses['cross_entropy'],
@@ -413,7 +414,7 @@ class Network(object):
     return rpn_loss_cls, rpn_loss_box, loss_cls, loss_box, loss, summary
 
   def train_step_no_return(self, sess, blobs, train_op):
-    feed_dict = {self._top_lidar: blobs['top_lidar'], self._top_lidar_info: blobs['top_lidar_info'],
-                 self._gt_boxes: blobs['gt_boxes']}
+    feed_dict = {self._top_lidar: blobs['top_lidar'], self._front_lidar: blobs['front_lidar'], self._image: blobs['image'], \
+            self._top_lidar_info: blobs['top_lidar_info'], self._gt_boxes: blobs['gt_boxes']}
     sess.run([train_op], feed_dict=feed_dict)
 

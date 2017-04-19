@@ -84,12 +84,24 @@ class SolverWrapper(object):
     try:
       reader = pywrap_tensorflow.NewCheckpointReader(file_name)
       var_to_shape_map = reader.get_variable_to_shape_map()
+      self.reader = reader
       return var_to_shape_map 
     except Exception as e:  # pylint: disable=broad-except
       print(str(e))
       if "corrupted compressed block contents" in str(e):
         print("It's likely that your checkpoint file has been compressed "
               "with SNAPPY.")
+
+  def restore(self, sess, variables):
+    var_name[0:7] + var_name[11:]
+    for key in variables:
+      try:
+          vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, key)
+          if vars:
+              var = vars[0]
+              sess.run(var.assign(self.reader.get_tensor(key[0:7] + key[11:])))
+      except ValueError:
+          print("Failure loading.")
 
   def train_model(self, sess, max_iters):
     # Build data layers for both training and validation set
@@ -170,12 +182,14 @@ class SolverWrapper(object):
           if v.name == 'vgg_16/fc6/weights:0' or v.name == 'vgg_16/fc7/weights:0':
             var_to_dic[v.name] = v
             continue
-          if v.name.split(':')[0] in var_keep_dic:
+          var_name = v.name.split(':')[0]
+          if (var_name[0:7] + var_name[11:])  in var_keep_dic:
             print('Varibles restored: %s' % v.name)
             variables_to_restore.append(v)
-
-      restorer = tf.train.Saver(variables_to_restore)
-      restorer.restore(sess, self.pretrained_model)
+      
+      self.restore(sess, variables_to_restore)
+      #restorer = tf.train.Saver(variables_to_restore)
+      #restorer.restore(sess, self.pretrained_model)
       print('Loaded.')
       sess.run(tf.assign(lr, cfg.TRAIN.LEARNING_RATE))
       # A temporary solution to fix the vgg16 issue from conv weights to fc weights

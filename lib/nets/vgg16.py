@@ -43,41 +43,51 @@ class vgg16(Network):
       else:
         self._initializer = tf.random_normal_initializer(mean=0.0, stddev=0.01)
         self._initializer_bbox = tf.random_normal_initializer(mean=0.0, stddev=0.001)
-      rois, net_bv = self.build_rpn_bv()
 
-      pool5_bv = self.roi_pool(rois, net_bv)
-      self.build_rcnn(pool5_bv)
+      rois, net_bv = self.build_bv()
+      net_fv = self.build_fv()
+      net_img = self.build_img()
+
+      mean_roi = self.roi_pool(rois, net_bv, net_fv, net_img)
+      self.build_rcnn(mean_roi)
 
       self._score_summaries.update(self._predictions)
 
       return self._predictions["rois"], self._predictions["cls_prob"], self._predictions["bbox_pred"]
 
-  def build_rpn_bv(self):
+
+  def build_bv(self):
       net = slim.repeat(self._top_lidar, 2, slim.conv2d, 64, [3, 3],
-                        trainable=self.is_training, scope='conv1')
-      net = slim.max_pool2d(net, [2, 2], padding='SAME', scope='pool1')
+                        trainable=self.is_training, scope='bv/conv1')
+      net = slim.max_pool2d(net, [2, 2], padding='SAME', scope='bv/pool1')
       net = slim.repeat(net, 2, slim.conv2d, 128, [3, 3],
-                        trainable=self.is_training, scope='conv2')
-      net = slim.max_pool2d(net, [2, 2], padding='SAME', scope='pool2')
+                        trainable=self.is_training, scope='bv/conv2')
+      net = slim.max_pool2d(net, [2, 2], padding='SAME', scope='bv/pool2')
       net = slim.repeat(net, 3, slim.conv2d, 256, [3, 3],
-                        trainable=self.is_training, scope='conv3')
-      net = slim.max_pool2d(net, [2, 2], padding='SAME', scope='pool3')
+                        trainable=self.is_training, scope='bv/conv3')
+      net = slim.max_pool2d(net, [2, 2], padding='SAME', scope='bv/pool3')
       net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3],
-                        trainable=self.is_training, scope='conv4')
+                        trainable=self.is_training, scope='bv/conv4')
       # Remove the 4th pooling operation for BirdsView rpn
       #net = slim.max_pool2d(net, [2, 2], padding='SAME', scope='pool4')
       net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3],
-                        trainable=self.is_training, scope='conv5')
-      # 2x deconv for lidar
-      size = tf.shape(net)
-      net = tf.image.resize_images(net, [size[1] * 2, size[2] * 2])
+                        trainable=self.is_training, scope='bv/conv5')
+      self._layers['bv/conv5_3'] = net
       self._act_summaries.append(net)
-      self._layers['conv5_3'] = net
+      # doing bilinear upsampling
+      # 4x deconv for lidar
+      size = tf.shape(net)
+      net = tf.image.resize_images(net, [size[1] * 4, size[2] * 4])
+
       # build the anchors for the image
       self._anchor_component()
 
+
+
       # rpn
-      rpn = slim.conv2d(net, 512, [3, 3], trainable=self.is_training, weights_initializer=self._initializer, scope="rpn_conv/3x3")
+      size = tf.shape(net)
+      rpn = tf.image.resize_images(net, [size[1] * 2, size[2] * 2])
+      rpn = slim.conv2d(rpn, 512, [3, 3], trainable=self.is_training, weights_initializer=self._initializer, scope="rpn_conv/3x3")
       self._act_summaries.append(rpn)
       rpn_cls_score = slim.conv2d(rpn, self._num_scales * 3 * 2, [1, 1], trainable=self.is_training,
                                   weights_initializer=self._initializer,
@@ -114,15 +124,62 @@ class vgg16(Network):
 
       return rois, net
 
-  def roi_pool(self, rois, net):
+  def build_fv(self):
+      net = slim.repeat(self._front_lidar, 2, slim.conv2d, 64, [3, 3],
+                        trainable=self.is_training, scope='fv/conv1')
+      net = slim.max_pool2d(net, [2, 2], padding='SAME', scope='fv/pool1')
+      net = slim.repeat(net, 2, slim.conv2d, 128, [3, 3],
+                        trainable=self.is_training, scope='fv/conv2')
+      net = slim.max_pool2d(net, [2, 2], padding='SAME', scope='fv/pool2')
+      net = slim.repeat(net, 3, slim.conv2d, 256, [3, 3],
+                        trainable=self.is_training, scope='fv/conv3')
+      net = slim.max_pool2d(net, [2, 2], padding='SAME', scope='fv/pool3')
+      net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3],
+                        trainable=self.is_training, scope='fv/conv4')
+      # Remove the 4th pooling operation for BirdsView rpn
+      #net = slim.max_pool2d(net, [2, 2], padding='SAME', scope='pool4')
+      net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3],
+                        trainable=self.is_training, scope='fv/conv5')
+      self._layers['fv/conv5_3'] = net
+      self._act_summaries.append(net)
+      # doing bilinear upsampling
+      # 4x deconv for lidar
+      size = tf.shape(net)
+      net = tf.image.resize_images(net, [size[1] * 4, size[2] * 4])
+
+      return net
+
+  def build_img(self):
+      net = slim.repeat(self._image, 2, slim.conv2d, 64, [3, 3],
+                        trainable=self.is_training, scope='im/conv1')
+      net = slim.max_pool2d(net, [2, 2], padding='SAME', scope='im/pool1')
+      net = slim.repeat(net, 2, slim.conv2d, 128, [3, 3],
+                        trainable=self.is_training, scope='im/conv2')
+      net = slim.max_pool2d(net, [2, 2], padding='SAME', scope='img/pool2')
+      net = slim.repeat(net, 3, slim.conv2d, 256, [3, 3],
+                        trainable=self.is_training, scope='im/conv3')
+      net = slim.max_pool2d(net, [2, 2], padding='SAME', scope='im/pool3')
+      net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3],
+                        trainable=self.is_training, scope='im/conv4')
+      # Remove the 4th pooling operation for BirdsView rpn
+      #net = slim.max_pool2d(net, [2, 2], padding='SAME', scope='pool4')
+      net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3],
+                        trainable=self.is_training, scope='im/conv5')
+      self._layers['im/conv5_3'] = net
+      self._act_summaries.append(net)
+      # doing bilinear upsampling
+      # 4x deconv for lidar
+      size = tf.shape(net)
+      net = tf.image.resize_images(net, [size[1] * 2, size[2] * 2])
+
+      return net
+
+  def roi_pool(self, rois, net_bv, net_fv, net_img):
       # pooling
       if cfg.POOLING_MODE == 'crop':
-        # doing bilinear upsampling
-        # 4x deconv for lidar
-        size = tf.shape(net)
-        net = tf.image.resize_images(net, [size[1] * 4, size[2] * 4])
-        pool5 = self._crop_pool_layer(net, rois, "pool5")
-        return pool5
+        #todo: implement pool transformation and mean calculation
+        mean_pool = self._crop_pool_layer(net_bv, rois, "bv/pool5")
+        return mean_pool
       else:
         raise NotImplementedError
 
