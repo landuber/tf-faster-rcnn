@@ -119,7 +119,7 @@ def lidar_to_top_tensor(lidar):
     top[:,:,Zn+1] = np.log(top[:,:,Zn+1]+1)/math.log(64)
 
 
-    return top, top_image
+    return top
 
 def lidar_to_front_tensor(lidar):
     THETA0,THETAn = 0, int((HORIZONTAL_MAX-HORIZONTAL_MIN)/HORIZONTAL_RESOLUTION)
@@ -142,7 +142,6 @@ def lidar_to_front_tensor(lidar):
     rcs = np.vstack((rs, cs, pzs, ds, prs)).T
     indices = np.where((rcs[:,0] < PHIn) & (rcs[:,0] >= PHI0) & (rcs[:, 1] < THETAn) & (rcs[:, 1] >= THETA0))[0]
     rcs = rcs[indices, :]
-    print('height,width,channel=%d,%d,%d'%(height,width,3))
     front = np.zeros(shape=(height,width,3), dtype=np.float32)
     front[:, 0] = -1.73
 
