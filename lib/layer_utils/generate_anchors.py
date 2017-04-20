@@ -9,9 +9,10 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
+from model.common import *
 
-ANCHOR_DEPTH = 3 # determine this from the paper
-INPUT_DEPTH = 7 #todo: make this an input parameter
+ANCHOR_DEPTH = 1.56/TOP_Z_DIVISION
+ANCHOR_CENTER =  (-0.78 - TOP_Z_MIN)/TOP_Z_DIVISION
 
 
 # Verify that we compute the same anchors as Shaoqing's matlab implementation:
@@ -66,7 +67,7 @@ def _whctrs(anchor):
   l = ANCHOR_DEPTH
   x_ctr = anchor[0] + 0.5 * (w - 1)
   y_ctr = anchor[1] + 0.5 * (h - 1)
-  z_ctr = (INPUT_DEPTH - ANCHOR_DEPTH) + (ANCHOR_DEPTH / 2) + 1
+  z_ctr = ANCHOR_CENTER
   return w, h, l, x_ctr, y_ctr, z_ctr
 
 

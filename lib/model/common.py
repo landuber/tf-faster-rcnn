@@ -5,8 +5,8 @@ TOP_Y_MIN=-40  #40
 TOP_Y_MAX=+40
 TOP_X_MIN=0
 TOP_X_MAX=70.4   #70.4
-TOP_Z_MIN=-2    ###<todo> determine the correct values!
-TOP_Z_MAX=2
+TOP_Z_MIN=-1.73    ###<todo> determine the correct values!
+TOP_Z_MAX=0.67
 
 TOP_X_DIVISION=0.1  #0.1
 TOP_Y_DIVISION=0.1
