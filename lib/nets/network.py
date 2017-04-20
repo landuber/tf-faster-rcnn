@@ -195,6 +195,7 @@ class Network(object):
 
   def _crop_pool_fv_layer(self, bottom, rois, name):
     with tf.variable_scope(name) as scope:
+      rois_front = tf.slice(rois, [0, 1], [-1, 6])
       rois_front = tf.py_func(fv_projection_layer, [rois], tf.float32)
       rois_front.set_shape([None, 4])
       batch_ids = tf.squeeze(tf.slice(rois, [0, 0], [-1, 1], name="batch_id"), [1])
