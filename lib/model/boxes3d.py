@@ -18,7 +18,15 @@ def box_from_corners(corners):
 
     return box
 
-def lidar_box_to_top_box(lidarb):
+def lidar_to_top_coords(x,y,z=None):
+    X0, Xn = 0, int((TOP_X_MAX-TOP_X_MIN)/TOP_X_DIVISION)
+    Y0, Yn = 0, int((TOP_Y_MAX-TOP_Y_MIN)/TOP_Y_DIVISION)
+    xx = Yn-int((y-TOP_Y_MIN)/TOP_Y_DIVISION)
+    yy = Xn-int((x-TOP_X_MIN)/TOP_X_DIVISION)
+
+    return xx, yy
+
+def lidar_box_to_top_box(b):
     x0 = b[0,0]
     y0 = b[0,1]
     x1 = b[1,0]
