@@ -31,8 +31,8 @@ from model.boxes3d import *
 
 class Network(object):
   def __init__(self, batch_size=1):
-    self._feat_stride = [8, ]
-    self._feat_compress = [1. / 8., ]
+    self._feat_stride = [4, ]
+    self._feat_compress = [1. / 4., ]
     self._batch_size = batch_size
     self._predictions = {}
     self._losses = {}
@@ -265,8 +265,8 @@ class Network(object):
 
   def _anchor_component(self):
     with tf.variable_scope('ANCHOR_' + self._tag) as scope:
-      height = tf.to_int32(tf.ceil(self._top_lidar_info[0, 0] / 8.))
-      width = tf.to_int32(tf.ceil(self._top_lidar_info[0, 1] / 8.))
+      height = tf.to_int32(tf.ceil(self._top_lidar_info[0, 0] / 4.))
+      width = tf.to_int32(tf.ceil(self._top_lidar_info[0, 1] / 4.))
       anchors, anchor_length = tf.py_func(generate_anchors_pre,
                                           [height, width,
                                            self._feat_stride, self._anchor_scales],

@@ -84,6 +84,7 @@ class vgg16(Network):
 
       # rpn
       size = tf.shape(net)
+      #2x deconv per the paper for the proposal net
       rpn = tf.image.resize_images(net, [size[1] * 2, size[2] * 2])
       rpn = slim.conv2d(rpn, 512, [3, 3], trainable=self.is_training, weights_initializer=self._initializer, scope="rpn_conv/3x3")
       self._act_summaries.append(rpn)
