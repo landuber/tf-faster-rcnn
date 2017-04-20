@@ -192,7 +192,8 @@ class SolverWrapper(object):
       print('Loaded.')
       sess.run(tf.assign(lr, cfg.TRAIN.LEARNING_RATE))
       # A temporary solution to fix the vgg16 issue from conv weights to fc weights
-      if self.net._arch == 'vgg16':
+      
+      if 0: #if self.net._arch == 'vgg16':
         print('Converting VGG16 fc layers..')
         with tf.device("/cpu:0"):
           fc6_conv = tf.get_variable("fc6_conv", [7, 7, 512, 4096], trainable=False)
