@@ -93,7 +93,6 @@ class SolverWrapper(object):
               "with SNAPPY.")
 
   def restore(self, sess, variables):
-    var_name[0:7] + var_name[11:]
     for key in variables:
       try:
           vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, key)
