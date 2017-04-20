@@ -48,8 +48,8 @@ class vgg16(Network):
       net_fv = self.build_fv()
       #net_img = self.build_img()
 
-      bv_pool = self._crop_bv_pool_layer(net_bv, rois, "bv/pool5")
-      fv_pool = self._crop_fv_pool_layer(net_fv, rois, "fv/pool5")
+      bv_pool = self._crop_pool_bv_layer(net_bv, rois, "bv/pool5")
+      fv_pool = self._crop_pool_fv_layer(net_fv, rois, "fv/pool5")
 
       self.build_rcnn(tf.add(bv_pool, fv_pool) / 2.0)
 

@@ -234,8 +234,8 @@ class kitti_voc(imdb):
             # Find all corners
             crs = obj.find('lidar_box').findall('corner')
             lidarb = np.zeros((8, 3), dtype=np.float32)
-            for ix, cr in enumerate(crs):
-                lidarb[ix, :] = [float(cr.find('x').text),
+            for ic, cr in enumerate(crs):
+                lidarb[ic, :] = [float(cr.find('x').text),
                                   float(cr.find('y').text),
                                   float(cr.find('z').text)]
             top_box = corners_from_box(lidar_box_to_top_box(lidarb))
