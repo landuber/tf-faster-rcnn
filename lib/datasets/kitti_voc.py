@@ -210,6 +210,7 @@ class kitti_voc(imdb):
 
         boxes = np.zeros((num_objs, 4), dtype=np.int32)
         top_boxes = np.zeros((num_objs, 6), dtype=np.int32)
+        lidar_boxes = np.zeros((num_objs, 8, 3), dtype=np.float32)
         dimensions = np.zeros((num_objs, 3), dtype=np.float32)
         locations = np.zeros((num_objs, 3), dtype=np.float32)
         rotations_y = np.zeros((num_objs), dtype=np.float32)
@@ -226,21 +227,23 @@ class kitti_voc(imdb):
         # Load object bounding boxes into a data frame.
         for ix, obj in enumerate(objs):
             bbox = obj.find('bndbox')
-            tbox = obj.find('topbox')
             dim =  obj.find('dimensions')
             loc = obj.find('location')
+
+            # Find all corners
+            crs = obj.find('lidar_box').findall('corner')
+            lidarb = np.zeros((8, 3), dtype=np.float32)
+            for ix, cr in enumerate(crs):
+                lidarb[ix, :] = [float(cr.find('x').text),
+                                  float(cr.find('y').text),
+                                  float(cr.find('z').text)]
+            top_box = corners_from_box(lidar_box_to_top_box(lidarb))
+
             # Make pixel indexes 0-based
             x1 = max(float(bbox.find('xmin').text) - 1, 0)
             y1 = max(float(bbox.find('ymin').text) - 1, 0)
             x2 = float(bbox.find('xmax').text) - 1
             y2 = float(bbox.find('ymax').text) - 1
-            # Make pixel indexes 0-based
-            tx1 = float(tbox.find('xmin').text)
-            ty1 = float(tbox.find('ymin').text)
-            tz1 = float(tbox.find('zmin').text)
-            tx2 = float(tbox.find('xmax').text)
-            ty2 = float(tbox.find('ymax').text)
-            tz2 = float(tbox.find('zmax').text)
             # Load dimensions
             height = float(dim.find('height').text)
             width = float(dim.find('width').text)
@@ -262,14 +265,16 @@ class kitti_voc(imdb):
             if class_name == 'dontcare':
                 dontcare_inds = np.append(dontcare_inds, np.asarray([ix], dtype=np.int32))
                 boxes[ix, :] = [x1, y1, x2, y2]
-                top_boxes[ix, :] = [tx1, ty1, tz1, tx2, ty2, tz2]
+                top_boxes[ix, :] = top_box
+                lidar_boxes[ix, :, :] = lidarb
                 dimensions[ix, :] = [height, width, length]
                 locations[ix, :] = [xp, yp, zp]
                 rotations_y[ix] = rot_y
                 continue
             cls = self._class_to_ind[class_name]
             boxes[ix, :] = [x1, y1, x2, y2]
-            top_boxes[ix, :] = [tx1, ty1, tz1, tx2, ty2, tz2]
+            top_boxes[ix, :] = top_box
+            lidar_boxes[ix, :, :] = lidarb
             dimensions[ix, :] = [height, width, length]
             locations[ix, :] = [xp, yp, zp]
             rotations_y[ix] = rot_y
@@ -293,6 +298,7 @@ class kitti_voc(imdb):
 
         return {'boxes' : boxes,
                 'top_boxes': top_boxes,
+                'lidar_boxes': lidar_boxes,
                 'gt_classes': gt_classes,
                 'gt_ishard' : ishards,
                 'dontcare_areas' : dontcare_areas,
@@ -300,6 +306,56 @@ class kitti_voc(imdb):
                 'flipped' : False,
                 'seg_areas' : seg_areas}
 
+
+
+
+  def corners_from_box(box):
+    return np.hstack((box.min(axis=0), box.max(axis=0)))
+
+
+  def box_from_corners(corners):
+    umin,vmin,zmin,umax,vmax,zmax = corners
+    box=np.array([[umin, vmin, zmin],
+                  [umax, vmin, zmin],
+                  [umax, vmax, zmin],
+                  [umin, vmax, zmin],
+                  [umin, vmin, zmax],
+                  [umax, vmin, zmax],
+                  [umax, vmax, zmax],
+                  [umin, vmax, zmax]])
+
+    return box
+
+  def lidar_box_to_top_box(lidarb):
+    x0 = b[0,0]
+    y0 = b[0,1]
+    x1 = b[1,0]
+    y1 = b[1,1]
+    x2 = b[2,0]
+    y2 = b[2,1]
+    x3 = b[3,0]
+    y3 = b[3,1]
+    u0,v0=lidar_to_top_coords(x0,y0)
+    u1,v1=lidar_to_top_coords(x1,y1)
+    u2,v2=lidar_to_top_coords(x2,y2)
+    u3,v3=lidar_to_top_coords(x3,y3)
+
+    z0 = max(b[0,2], b[1,2], b[2,2], b[3,2]) # top
+    z4 = min(b[4,2], b[5,2], b[6,2], b[7,2]) # bottom
+    Zn = int((TOP_Z_MAX-TOP_Z_MIN)/TOP_Z_DIVISION)
+    zmax = int((z0-TOP_Z_MIN)/TOP_Z_DIVISION)
+    zmin = int((z4-TOP_Z_MIN)/TOP_Z_DIVISION)
+
+    umin=min(u0,u1,u2,u3)
+    umax=max(u0,u1,u2,u3)
+    vmin=min(v0,v1,v2,v3)
+    vmax=max(v0,v1,v2,v3)
+
+
+    # start from the top left corner and go clockwise
+    top_box = box_from_corners((umin,vmin,zmin,umax,vmax,zmax))
+
+    return top_box
 
   def _get_comp_id(self):
     comp_id = (self._comp_id + '_' + self._salt if self.config['use_salt']

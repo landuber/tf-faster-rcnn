@@ -177,7 +177,7 @@ class SolverWrapper(object):
           # exclude the conv weights that are fc weights in vgg16
 	  if v.name == 'vgg_16/fc8/biases:0' or v.name == 'vgg_16/fc8/weights:0':
 	    continue
-	  if v.name == 'vgg_16/conv1/conv1_1/biases:0' or v.name == 'vgg_16/conv1/conv1_1/weights:0':
+	  if v.name.endswith('conv1/conv1_1/biases:0') or v.name.endswith('conv1/conv1_1/weights:0'):
 	    continue
           if v.name == 'vgg_16/fc6/weights:0' or v.name == 'vgg_16/fc7/weights:0':
             var_to_dic[v.name] = v

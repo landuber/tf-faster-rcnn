@@ -46,10 +46,12 @@ class vgg16(Network):
 
       rois, net_bv = self.build_bv()
       net_fv = self.build_fv()
-      net_img = self.build_img()
+      #net_img = self.build_img()
 
-      mean_roi = self.roi_pool(rois, net_bv, net_fv, net_img)
-      self.build_rcnn(mean_roi)
+      bv_pool = self._crop_bv_pool_layer(net_bv, rois, "bv/pool5")
+      fv_pool = self._crop_fv_pool_layer(net_fv, rois, "fv/pool5")
+
+      self.build_rcnn(tf.add(bv_pool, fv_pool) / 2.0)
 
       self._score_summaries.update(self._predictions)
 
@@ -74,10 +76,6 @@ class vgg16(Network):
                         trainable=self.is_training, scope='bv/conv5')
       self._layers['bv/conv5_3'] = net
       self._act_summaries.append(net)
-      # doing bilinear upsampling
-      # 4x deconv for lidar
-      size = tf.shape(net)
-      net = tf.image.resize_images(net, [size[1] * 4, size[2] * 4])
 
       # build the anchors for the image
       self._anchor_component()

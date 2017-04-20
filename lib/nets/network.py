@@ -152,7 +152,7 @@ class Network(object):
                                   pooled_width=cfg.POOLING_SIZE,
                                   spatial_scale=1. / 16.)[0]
 
-  def _crop_pool_layer(self, bottom, rois, name):
+  def _crop_pool_bv_layer(self, bottom, rois, name):
     with tf.variable_scope(name) as scope:
       batch_ids = tf.squeeze(tf.slice(rois, [0, 0], [-1, 1], name="batch_id"), [1])
       # Get the normalized coordinates of bboxes
@@ -165,10 +165,81 @@ class Network(object):
       y2 = tf.slice(rois, [0, 5], [-1, 1], name="y2") / height
       # Won't be backpropagated to rois anyway, but to save time
       bboxes = tf.stop_gradient(tf.concat([y1, x1, y2, x2], axis=1))
-      pre_pool_size = cfg.POOLING_SIZE * 2
+      pre_pool_size = cfg.POOLING_SIZE * 4
       crops = tf.image.crop_and_resize(bottom, bboxes, tf.to_int32(batch_ids), [pre_pool_size, pre_pool_size], name="crops")
 
     return slim.max_pool2d(crops, [2, 2], padding='SAME')
+
+
+  def _crop_pool_fv_layer(self, bottom, rois, name):
+    rois = tf.py_func(fv_projection_layer, [rois], [tf.int32])
+    with tf.variable_scope(name) as scope:
+      batch_ids = tf.squeeze(tf.slice(rois, [0, 0], [-1, 1], name="batch_id"), [1])
+      # Get the normalized coordinates of bboxes
+      bottom_shape = tf.shape(bottom)
+      height = (tf.to_float(bottom_shape[1]) - 1.) * np.float32(self._feat_stride[0])
+      width = (tf.to_float(bottom_shape[2]) - 1.) * np.float32(self._feat_stride[0])
+      x1 = tf.slice(rois, [0, 0], [-1, 1], name="x1") / width
+      y1 = tf.slice(rois, [0, 1], [-1, 1], name="y1") / height
+      x2 = tf.slice(rois, [0, 2], [-1, 1], name="x2") / width
+      y2 = tf.slice(rois, [0, 3], [-1, 1], name="y2") / height
+      # Won't be backpropagated to rois anyway, but to save time
+      bboxes = tf.stop_gradient(tf.concat([y1, x1, y2, x2], axis=1))
+      pre_pool_size = cfg.POOLING_SIZE * 4
+      crops = tf.image.crop_and_resize(bottom, bboxes, tf.to_int32(batch_ids), [pre_pool_size, pre_pool_size], name="crops")
+
+    return slim.max_pool2d(crops, [2, 2], padding='SAME')
+
+
+  def fv_projection_layer(rois):
+      front_rois = np.empty([rois.shape[0], 4])
+      for idx in range(rois.shape[0]):
+          box = box_from_corners(rois[idx, :])
+          front_rois[idx, :] = box_to_front_proj(box)
+      return front_rois
+
+
+
+  def box_from_corners(corners):
+    umin,vmin,zmin,umax,vmax,zmax = corners
+    box=np.array([[umin, vmin, zmin],
+                  [umax, vmin, zmin],
+                  [umax, vmax, zmin],
+                  [umin, vmax, zmin],
+                  [umin, vmin, zmax],
+                  [umax, vmin, zmax],
+                  [umax, vmax, zmax],
+                  [umin, vmax, zmax]])
+
+    return box
+
+  def lidar_to_front_coord(xx, yy, zz):
+    THETA0,THETAn = 0, int((HORIZONTAL_MAX-HORIZONTAL_MIN)/HORIZONTAL_RESOLUTION)
+    PHI0, PHIn = 0, int((VERTICAL_MAX-VERTICAL_MIN)/VERTICAL_RESOLUTION)
+    c = ((np.arctan2(xx, -yy) - HORIZONTAL_MIN) / HORIZONTAL_RESOLUTION).astype(np.int32)
+    r = ((np.arctan2(zz, np.hypot(xx, yy)) - VERTICAL_MIN) / VERTICAL_RESOLUTION).astype(np.int32)
+    yy, xx = -int(r - PHI0), -int(c - THETA0) 
+    return xx, yy
+
+  def top_to_lidar_coord(xx, yy, zz):
+    X0, Xn = 0, int((TOP_X_MAX-TOP_X_MIN)/TOP_X_DIVISION)
+    Y0, Yn = 0, int((TOP_Y_MAX-TOP_Y_MIN)/TOP_Y_DIVISION)
+    x = ((Xn - yy) - 0.5) * TOP_X_DIVISION + TOP_X_MIN
+    y = ((Yn - xx) - 0.5) * TOP_Y_DIVISION + TOP_Y_MIN
+    z = (zz + 0.5)*TOP_Z_DIVISION + TOP_Z_MIN
+    return x,y,z
+
+  def top_to_front_coord(xx, yy, zz):
+    x, y, z = top_to_lidar_coord(xx, yy, zz)
+    xx, yy = lidar_to_front_coord(x, y, z)
+    return xx, yy
+
+  def box_to_front_proj(box):
+    front  = np.empty([box.shape[0], 2])
+    for i in range(box.shape[0]):
+        front[i,:] = top_to_front_coord(*box[i,:])
+
+    return np.hstack((front.min(axis=0), front.max(axis=0)))
 
   def _dropout_layer(self, bottom, name, ratio=0.5):
     return tf.nn.dropout(bottom, ratio, name=name)
@@ -305,7 +376,7 @@ class Network(object):
     channel = Zn + 2
     self._top_lidar = tf.placeholder(tf.float32, shape=[self._batch_size, None, None, channel])
     self._front_lidar = tf.placeholder(tf.float32, shape=[self._batch_size, None, None, 3])
-    self._image = tf.placeholder(tf.float32, shape=[self._batch_size, None, None, 3])
+    #self._image = tf.placeholder(tf.float32, shape=[self._batch_size, None, None, 3])
     self._top_lidar_info = tf.placeholder(tf.float32, shape=[self._batch_size, 3])
     self._gt_boxes = tf.placeholder(tf.float32, shape=[None, 7])
     self._tag = tag

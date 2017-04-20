@@ -45,11 +45,12 @@ MATRIX_Kt = ([[ 721.5377,    0.    ,    0.    ],
 
 
 
-def generate_top_box(dim, loc, rot, cam_to_velo):
+def generate_lidar_box(dim, loc, rot, cam_to_velo):
   h = dim[0]
   w = dim[1]
   l = dim[2]
 
+  # corners from the top surface, then the bottom surface
   box = np.array([ # in camera coordinates around zero point and without orientation yet\
           [l/2, l/2,  -l/2, -l/2, l/2, l/2,  -l/2, -l/2], \
           [ 0.0,  0.0,  0.0, 0.0,   -h,  -h,  -h,  -h], \
@@ -64,12 +65,26 @@ def generate_top_box(dim, loc, rot, cam_to_velo):
   cornerPosInCam = np.vstack((cornerPosInCam, np.ones((8))))
   cornerPosInVelo = np.dot(cam_to_velo, cornerPosInCam)
   box = cornerPosInVelo[0:3, :].transpose()
-  return box3d_to_top_box(box)
+  return box
 
 
+def box_from_corners(corners):
+    umin,vmin,zmin,umax,vmax,zmax = corners
+    box=np.array([[umin, vmin, zmin],
+                  [umax, vmin, zmin],
+                  [umax, vmax, zmin],
+                  [umin, vmax, zmin],
+                  [umin, vmin, zmax],
+                  [umax, vmin, zmax],
+                  [umax, vmax, zmax],
+                  [umin, vmax, zmax]])
 
+    return box
 
-def box3d_to_top_box(b):
+def corners_from_box(box):
+    return np.hstack((box.min(axis=0), box.max(axis=0)))
+
+def lidar_box_to_top_box(b):
     x0 = b[0,0]
     y0 = b[0,1]
     x1 = b[1,0]
@@ -83,18 +98,20 @@ def box3d_to_top_box(b):
     u2,v2=lidar_to_top_coords(x2,y2)
     u3,v3=lidar_to_top_coords(x3,y3)
 
-    z0 = min(b[0,2], b[1,2], b[2,2], b[3,2]) # top
-    z4 = max(b[4,2], b[5,2], b[6,2], b[7,2]) # bottom
+    z0 = max(b[0,2], b[1,2], b[2,2], b[3,2]) # top
+    z4 = min(b[4,2], b[5,2], b[6,2], b[7,2]) # bottom
     Zn = int((TOP_Z_MAX-TOP_Z_MIN)/TOP_Z_DIVISION)
-    zmax = Zn-int((z0-TOP_Z_MIN)/TOP_Z_DIVISION)
-    zmin = Zn-int((z4-TOP_Z_MIN)/TOP_Z_DIVISION)
+    zmax = int((z0-TOP_Z_MIN)/TOP_Z_DIVISION)
+    zmin = int((z4-TOP_Z_MIN)/TOP_Z_DIVISION)
 
     umin=min(u0,u1,u2,u3)
     umax=max(u0,u1,u2,u3)
     vmin=min(v0,v1,v2,v3)
     vmax=max(v0,v1,v2,v3)
 
-    top_box=np.array([umin,vmin,zmin,umax,vmax,zmax])
+
+    # start from the top left corner and go clockwise
+    top_box = box_from_corners((umin,vmin,zmin,umax,vmax,zmax))
 
     return top_box
 
@@ -212,14 +229,14 @@ def generate_xml(name, lines, calib_lines, img_size = (370, 1224, 3), \
         velo_to_cam = np.vstack((velo_to_cam, [0., 0., 0., 1.]))
         cam_to_velo = np.linalg.inv(velo_to_cam)
         location = np.array([x,y,z], dtype=np.float32)
-        top_box = generate_top_box(np.array([height, width, length]), location, rot_y, cam_to_velo)
-        tb = append_xml_node_attr('topbox', parent=obj)
-        append_xml_node_attr('xmin', parent=tb, text=str(top_box[0]))
-        append_xml_node_attr('ymin', parent=tb, text=str(top_box[1]))
-        append_xml_node_attr('zmin', parent=tb, text=str(top_box[2]))
-        append_xml_node_attr('xmax', parent=tb, text=str(top_box[3]))
-        append_xml_node_attr('ymax', parent=tb, text=str(top_box[4]))
-        append_xml_node_attr('zmax', parent=tb, text=str(top_box[5]))
+        lidar_box = generate_lidar_box(np.array([height, width, length]), location, rot_y, cam_to_velo)
+        lb = append_xml_node_attr('lidar_box', parent=obj)
+
+        for i in range(lidar_box.shape[0]):
+            cr = append_xml_node_attr('corner', parent=lb)
+            append_xml_node_attr('x', parent=cr, text=str(lidar_box[i, 0]))
+            append_xml_node_attr('y', parent=cr, text=str(lidar_box[i, 1]))
+            append_xml_node_attr('z', parent=cr, text=str(lidar_box[i, 2]))
         location = append_xml_node_attr('location', parent=obj)
         append_xml_node_attr('x', parent=location, text=str(x))
         append_xml_node_attr('y', parent=location, text=str(y))
@@ -228,7 +245,7 @@ def generate_xml(name, lines, calib_lines, img_size = (370, 1224, 3), \
             
 
 
-        o = {'class': cls, 'box': top_box, \
+        o = {'class': cls, 'box': lidar_box, \
              'truncation': truncation, 'difficult': difficult, 'occlusion': occlusion}
         objs.append(o)
 
@@ -308,7 +325,7 @@ def build_voc_dirs(outdir):
 
     return os.path.join(outdir, 'Annotations'), os.path.join(outdir, 'JPEGImages'), os.path.join(outdir, 'Lidar'), os.path.join(outdir, 'ImageSets', 'Main')
 
-def _draw_on_image(img, objs, class_sets_dict):
+def _draw_on_image(img, objs, class_sets_dict, front=False):
     colors = [(86, 0, 240), (173, 225, 61), (54, 137, 255),\
               (151, 0, 255), (243, 223, 48), (0, 117, 255),\
               (58, 184, 14), (86, 67, 140), (121, 82, 6),\
@@ -316,18 +333,68 @@ def _draw_on_image(img, objs, class_sets_dict):
     font = cv2.FONT_HERSHEY_SIMPLEX
     for ind, obj in enumerate(objs):
         if obj['box'] is None: continue
-        x1, y1, x2, y2 = obj['box'].astype(int)
+        box = lidar_box_to_top_box(obj['box']).astype(int)
         cls_id = class_sets_dict[obj['class']]
-        print('drawing' + obj['class'])
+        rect_color = colors[cls_id % len(colors)]
+        text_color = (255, 0, 255)
+        if front:
+            x1, y1, x2, y2 = box_to_front_proj(box)
+            rect_color = (0, 0, 0)
+            text_color = (0, 0, 0)
+        else:
+            x1, y1, x2, y2 = box_to_top_proj(box)
+
+
         if obj['class'] == 'dontcare':
-            cv2.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)), (255, 0, 0), 1)
+            #cv2.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)), (255, 0, 0), 1)
             continue
-        cv2.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)), colors[cls_id % len(colors)], 1)
+        cv2.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)), rect_color, 1)
         text = '{:s}*|'.format(obj['class'][:3]) if obj['difficult'] == 1 else '{:s}|'.format(obj['class'][:3])
         text += '{:.1f}|'.format(obj['truncation'])
         text += str(obj['occlusion'])
-        cv2.putText(img, text, (x1-2, y2-2), font, 0.5, (255, 0, 255), 1)
+        if not front:
+            cv2.putText(img, text, (x1-2, y2-2), font, 0.5, text_color, 1)
     return img
+
+
+def lidar_to_front_coord(xx, yy, zz):
+    THETA0,THETAn = 0, int((HORIZONTAL_MAX-HORIZONTAL_MIN)/HORIZONTAL_RESOLUTION)
+    PHI0, PHIn = 0, int((VERTICAL_MAX-VERTICAL_MIN)/VERTICAL_RESOLUTION)
+    c = ((np.arctan2(xx, -yy) - HORIZONTAL_MIN) / HORIZONTAL_RESOLUTION).astype(np.int32)
+    r = ((np.arctan2(zz, np.hypot(xx, yy)) - VERTICAL_MIN) / VERTICAL_RESOLUTION).astype(np.int32)
+    yy, xx = -int(r - PHI0), -int(c - THETA0) 
+    if xx < 0:
+        xx = THETAn + xx
+    if yy < 0:
+        yy = PHIn + yy
+    return xx, yy
+
+def top_to_lidar_coord(xx, yy, zz):
+    X0, Xn = 0, int((TOP_X_MAX-TOP_X_MIN)/TOP_X_DIVISION)
+    Y0, Yn = 0, int((TOP_Y_MAX-TOP_Y_MIN)/TOP_Y_DIVISION)
+    x = ((Xn - yy) - 0.5) * TOP_X_DIVISION + TOP_X_MIN
+    y = ((Yn - xx) - 0.5) * TOP_Y_DIVISION + TOP_Y_MIN
+    z = (zz + 0.5)*TOP_Z_DIVISION + TOP_Z_MIN
+    return x,y,z
+
+def top_to_front_coord(xx, yy, zz):
+    x, y, z = top_to_lidar_coord(xx, yy, zz)
+    xx, yy = lidar_to_front_coord(x, y, z)
+    return xx, yy
+
+def box_to_top_proj(box):
+    return np.hstack((box.min(axis=0)[:2], box.max(axis=0)[:2]))
+
+def box_to_front_proj(box):
+    front  = np.empty([box.shape[0], 2])
+    for i in range(box.shape[0]):
+        front[i,:] = top_to_front_coord(*box[i,:])
+
+    return np.hstack((front.min(axis=0), front.max(axis=0)))
+
+
+
+
 
 
 def lidar_to_front_tensor(lidar):
@@ -353,6 +420,7 @@ def lidar_to_front_tensor(lidar):
     rcs = rcs[indices, :]
     print('height,width,channel=%d,%d,%d'%(height,width,3))
     front = np.zeros(shape=(height,width,3), dtype=np.float32)
+    # Initialize with the least height
     front[:, 0] = -1.73
 
     for rc in rcs:
@@ -381,7 +449,6 @@ def lidar_to_front_tensor(lidar):
 
 
 def lidar_to_top_tensor(lidar):
-    start = time.time()
     X0, Xn = 0, int((TOP_X_MAX-TOP_X_MIN)/TOP_X_DIVISION)
     Y0, Yn = 0, int((TOP_Y_MAX-TOP_Y_MIN)/TOP_Y_DIVISION)
     Z0, Zn = 0, int((TOP_Z_MAX-TOP_Z_MIN)/TOP_Z_DIVISION)
@@ -399,7 +466,9 @@ def lidar_to_top_tensor(lidar):
     qzs=((pzs-TOP_Z_MIN)/TOP_Z_DIVISION).astype(np.int32)
 
     q_lidar = np.vstack((qxs, qys, qzs, pzs, prs)).T
-    indices = np.where((q_lidar[:,0] < Xn) & (q_lidar[:,0] >= X0) & (q_lidar[:, 1] < Yn) & (q_lidar[:, 1] >= Y0) & (q_lidar[:,2] < Zn) & (q_lidar[:,2] >= Z0))[0]
+    indices = np.where((q_lidar[:, 0] < Xn) & (q_lidar[:, 0] >= X0) 
+                     & (q_lidar[:, 1] < Yn) & (q_lidar[:, 1] >= Y0) 
+                     & (q_lidar[:, 2] < Zn) & (q_lidar[:, 2] >= Z0))[0]
     q_lidar = q_lidar[indices, :]
     print('height,width,channel=%d,%d,%d'%(height,width,channel))
     top = np.zeros(shape=(height,width,channel), dtype=np.float32)
@@ -414,8 +483,6 @@ def lidar_to_top_tensor(lidar):
             top[yy,xx,Zn] = l[4]
 
     top[:,:,Zn+1] = np.log(top[:,:,Zn+1]+1)/math.log(64)
-    end = time.time()
-    print(end-start)
 
     if 1:
         top_image = np.sum(top,axis=2)
@@ -425,85 +492,6 @@ def lidar_to_top_tensor(lidar):
 
     return top, top_image
 
-
-def lidar_to_top(lidar):
-
-    X0, Xn = 0, int((TOP_X_MAX-TOP_X_MIN)/TOP_X_DIVISION)
-    Y0, Yn = 0, int((TOP_Y_MAX-TOP_Y_MIN)/TOP_Y_DIVISION)
-    Z0, Zn = 0, int((TOP_Z_MAX-TOP_Z_MIN)/TOP_Z_DIVISION)
-    width  = Yn - Y0
-    height   = Xn - X0
-    channel = Zn - Z0  + 2
-
-    pxs=lidar[:,0]
-    pys=lidar[:,1]
-    pzs=lidar[:,2]
-    prs=lidar[:,3]
-
-    qxs=((pxs-TOP_X_MIN)/TOP_X_DIVISION).astype(np.int32)
-    qys=((pys-TOP_Y_MIN)/TOP_Y_DIVISION).astype(np.int32)
-    qzs=((pzs-TOP_Z_MIN)/TOP_Z_DIVISION).astype(np.int32)
-
-    print('height,width,channel=%d,%d,%d'%(height,width,channel))
-    top = np.zeros(shape=(height,width,channel), dtype=np.float32)
-
-    ## start to make top  here !!!
-    for z in range(Z0,Zn):
-        iz = np.where (qzs==z)
-        for y in range(Y0,Yn):
-            iy  = np.where (qys==y)
-            iyz = np.intersect1d(iy, iz)
-
-            for x in range(X0,Xn):
-                #print('', end='\r',flush=True)
-                #print(z,y,z,flush=True)
-
-                ix = np.where (qxs==x)
-                idx = np.intersect1d(ix,iyz)
-
-                if len(idx)>0:
-                    yy,xx,zz = -(x-X0),-(y-Y0),z-Z0
-
-
-                    #height per slice
-                    max_height = max(0,np.max(pzs[idx])-TOP_Z_MIN)
-                    top[yy,xx,zz]=max_height
-
-                    #intensity
-                    max_intensity = np.max(prs[idx])
-                    top[yy,xx,Zn]=max_intensity
-
-                    #density
-                    count = len(idx)
-                    top[yy,xx,Zn+1]+=count
-
-                pass
-            pass
-        pass
-    top[:,:,Zn+1] = np.log(top[:,:,Zn+1]+1)/math.log(64)
-
-    if 1:
-        top_image = np.sum(top,axis=2)
-        top_image = top_image-np.min(top_image)
-        top_image = (top_image/np.max(top_image)*255)
-        top_image = np.dstack((top_image, top_image, top_image)).astype(np.uint8)
-
-
-    if 0: #unprocess
-        top_image = np.zeros((height,width,3),dtype=np.float32)
-
-        num = len(lidar)
-        for n in range(num):
-            x,y = qxs[n],qys[n]
-            if x>=0 and x <width and y>0 and y<height:
-                top_image[y,x,:] += 1
-
-        max_value=np.max(np.log(top_image+0.001))
-        top_image = top_image/max_value *255
-        top_image=top_image.astype(dtype=np.uint8)
-
-
-    return top, top_image
 
 
 if __name__ == '__main__':
@@ -547,9 +535,30 @@ if __name__ == '__main__':
             img_size = img.shape
             doc, objs = generate_xml(stem, lines, calib_lines, img_size, class_sets=class_sets, doncateothers=_doncateothers)
 
-            if _draw:
-                top = _draw_on_image(top, objs, class_sets_dict)
-
+            # Lidar 
+            if 0:
+                lidar_file = os.path.join(_dest_lidar_dir, stem + '.bin')
+                lidar = np.fromfile(lidar_file, dtype=np.float32)
+                lidar = lidar.reshape((-1, 4))
+                print('discretizing start')
+                front = lidar_to_front_tensor(lidar)
+                print('discretizing end')
+                if _draw:
+                    #top = _draw_on_image(top, objs, class_sets_dict)
+                    front = _draw_on_image(front, objs, class_sets_dict, front=True)
+                cv2.imwrite(os.path.join(_dest_img_dir, stem + '_front.jpg'), front)
+            if 0:
+                lidar_file = os.path.join(_dest_lidar_dir, stem + '.bin')
+                lidar = np.fromfile(lidar_file, dtype=np.float32)
+                lidar = lidar.reshape((-1, 4))
+                print('discretizing start')
+                _, top = lidar_to_top_tensor(lidar)
+                print('discretizing end')
+                if _draw:
+                    top = _draw_on_image(top, objs, class_sets_dict)
+                cv2.imwrite(os.path.join(_dest_img_dir, stem + '_top.jpg'), top)
+            
+            
             cv2.imwrite(os.path.join(_dest_img_dir, stem + '.jpg'), img)
             xmlfile = os.path.join(_dest_label_dir, stem + '.xml')
             with open(xmlfile, 'w') as f:
