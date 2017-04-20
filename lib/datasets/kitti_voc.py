@@ -40,7 +40,7 @@ class kitti_voc(imdb):
     self._image_ext = '.jpg'
     self._lidar_ext = '.bin'
     self._image_index = self._load_image_set_index()
-    #self._remove_empty_samples()
+    self._remove_empty_samples()
     # Default to roidb handler
     self._roidb_handler = self.gt_roidb
     self._salt = str(uuid.uuid4())
