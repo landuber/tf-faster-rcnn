@@ -362,11 +362,7 @@ def lidar_to_front_coord(xx, yy, zz):
     PHI0, PHIn = 0, int((VERTICAL_MAX-VERTICAL_MIN)/VERTICAL_RESOLUTION)
     c = ((np.arctan2(xx, -yy) - HORIZONTAL_MIN) / HORIZONTAL_RESOLUTION).astype(np.int32)
     r = ((np.arctan2(zz, np.hypot(xx, yy)) - VERTICAL_MIN) / VERTICAL_RESOLUTION).astype(np.int32)
-    yy, xx = -int(r - PHI0), -int(c - THETA0) 
-    if xx < 0:
-        xx = THETAn + xx
-    if yy < 0:
-        yy = PHIn + yy
+    yy, xx = PHIn - int(r), THETAn - int(c) 
     return xx, yy
 
 def top_to_lidar_coord(xx, yy, zz):
