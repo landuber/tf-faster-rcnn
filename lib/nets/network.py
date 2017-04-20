@@ -31,8 +31,8 @@ from model.boxes3d import *
 
 class Network(object):
   def __init__(self, batch_size=1):
-    self._feat_stride = [4, ]
-    self._feat_compress = [1. / 4., ]
+    self._feat_stride = [8, ]
+    self._feat_compress = [1. / 8., ]
     self._batch_size = batch_size
     self._predictions = {}
     self._losses = {}
@@ -45,7 +45,7 @@ class Network(object):
     self._event_summaries = {}
 
 
-  def _add_lidar_summary(self, lidar, boxes):
+  def _add_bv_lidar_summary(self, lidar, boxes):
     image = tf.reduce_sum(lidar,axis=-1)
     #
     image = tf.reduce_max(image) - image
@@ -54,6 +54,25 @@ class Network(object):
     #image = image - tf.reduce_min(image)
     #image = (image/tf.reduce_max(image)*255)
     image    = tf.stack ([image, image, image], axis=-1)
+    # dims for normalization
+    width  = tf.to_float(tf.shape(image)[2])
+    height = tf.to_float(tf.shape(image)[1])
+    # from [x1, y1, z1, x2, y2, z2 cls] to normalized [y1, x1, y1, x1]
+    cols = tf.unstack(boxes, axis=1)
+    boxes = tf.stack([cols[1] / height,
+                      cols[0] / width,
+                      cols[4] / height,
+                      cols[3] / width], axis=1)
+    # add batch dimension (assume batch_size==1)
+    assert image.get_shape()[0] == 1
+    boxes = tf.expand_dims(boxes, dim=0)
+    image = tf.image.draw_bounding_boxes(image, boxes)
+    
+    return tf.summary.image('ground_truth', image)
+
+  def _add_fv_lidar_summary(self, lidar, boxes):
+    image = lidar
+    boxes = tf.py_func(fv_projection_layer, [boxes], [tf.float32])
     # dims for normalization
     width  = tf.to_float(tf.shape(image)[2])
     height = tf.to_float(tf.shape(image)[1])
@@ -68,7 +87,7 @@ class Network(object):
     boxes = tf.expand_dims(boxes, dim=0)
     image = tf.image.draw_bounding_boxes(image, boxes)
     
-    return tf.summary.image('ground_truth', image)
+    return tf.summary.image('ground2_truth', image)
 
   def _add_top_lidar_summary(self, image, boxes):
     # add back mean
@@ -173,17 +192,17 @@ class Network(object):
 
 
   def _crop_pool_fv_layer(self, bottom, rois, name):
-    rois = tf.py_func(fv_projection_layer, [rois], [tf.int32])
+    rois_front = tf.py_func(fv_projection_layer, [rois], [tf.float32])
     with tf.variable_scope(name) as scope:
       batch_ids = tf.squeeze(tf.slice(rois, [0, 0], [-1, 1], name="batch_id"), [1])
       # Get the normalized coordinates of bboxes
       bottom_shape = tf.shape(bottom)
       height = (tf.to_float(bottom_shape[1]) - 1.) * np.float32(self._feat_stride[0])
       width = (tf.to_float(bottom_shape[2]) - 1.) * np.float32(self._feat_stride[0])
-      x1 = tf.slice(rois, [0, 0], [-1, 1], name="x1") / width
-      y1 = tf.slice(rois, [0, 1], [-1, 1], name="y1") / height
-      x2 = tf.slice(rois, [0, 2], [-1, 1], name="x2") / width
-      y2 = tf.slice(rois, [0, 3], [-1, 1], name="y2") / height
+      x1 = tf.slice(rois_front, [0, 0], [-1, 1], name="x1") / width
+      y1 = tf.slice(rois_front, [0, 1], [-1, 1], name="y1") / height
+      x2 = tf.slice(rois_front, [0, 2], [-1, 1], name="x2") / width
+      y2 = tf.slice(rois_front, [0, 3], [-1, 1], name="y2") / height
       # Won't be backpropagated to rois anyway, but to save time
       bboxes = tf.stop_gradient(tf.concat([y1, x1, y2, x2], axis=1))
       pre_pool_size = cfg.POOLING_SIZE * 4
@@ -244,8 +263,8 @@ class Network(object):
 
   def _anchor_component(self):
     with tf.variable_scope('ANCHOR_' + self._tag) as scope:
-      height = tf.to_int32(tf.ceil(self._top_lidar_info[0, 0] / 4.))
-      width = tf.to_int32(tf.ceil(self._top_lidar_info[0, 1] / 4.))
+      height = tf.to_int32(tf.ceil(self._top_lidar_info[0, 0] / 8.))
+      width = tf.to_int32(tf.ceil(self._top_lidar_info[0, 1] / 8.))
       anchors, anchor_length = tf.py_func(generate_anchors_pre,
                                           [height, width,
                                            self._feat_stride, self._anchor_scales],
@@ -370,7 +389,8 @@ class Network(object):
     val_summaries = []
     with tf.device("/cpu:0"):
       #val_summaries.append(self._add_top_lidar_summary(self._image, self._gt_boxes))
-      val_summaries.append(self._add_lidar_summary(self._top_lidar, self._gt_boxes))
+      val_summaries.append(self._add_bv_lidar_summary(self._top_lidar, self._gt_boxes))
+      val_summaries.append(self._add_fv_lidar_summary(self._front_lidar, self._gt_boxes))
       for key, var in self._event_summaries.items():
         val_summaries.append(tf.summary.scalar(key, var))
       for key, var in self._score_summaries.items():
