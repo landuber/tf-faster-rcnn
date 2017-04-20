@@ -59,20 +59,20 @@ class vgg16(Network):
 
 
   def build_bv(self):
-      net = slim.repeat(self._top_lidar, 2, slim.conv2d, 64, [3, 3],
+      net = slim.repeat(self._top_lidar, 2, slim.conv2d, 32, [3, 3],
                         trainable=self.is_training, scope='bv/conv1')
       net = slim.max_pool2d(net, [2, 2], padding='SAME', scope='bv/pool1')
-      net = slim.repeat(net, 2, slim.conv2d, 128, [3, 3],
+      net = slim.repeat(net, 2, slim.conv2d, 64, [3, 3],
                         trainable=self.is_training, scope='bv/conv2')
       net = slim.max_pool2d(net, [2, 2], padding='SAME', scope='bv/pool2')
-      net = slim.repeat(net, 3, slim.conv2d, 256, [3, 3],
+      net = slim.repeat(net, 3, slim.conv2d, 128, [3, 3],
                         trainable=self.is_training, scope='bv/conv3')
       net = slim.max_pool2d(net, [2, 2], padding='SAME', scope='bv/pool3')
-      net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3],
+      net = slim.repeat(net, 3, slim.conv2d, 256, [3, 3],
                         trainable=self.is_training, scope='bv/conv4')
       # Remove the 4th pooling operation for BirdsView rpn
       #net = slim.max_pool2d(net, [2, 2], padding='SAME', scope='pool4')
-      net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3],
+      net = slim.repeat(net, 3, slim.conv2d, 256, [3, 3],
                         trainable=self.is_training, scope='bv/conv5')
       self._layers['bv/conv5_3'] = net
       self._act_summaries.append(net)
@@ -86,7 +86,7 @@ class vgg16(Network):
       size = tf.shape(net)
       #2x deconv per the paper for the proposal net
       rpn = tf.image.resize_images(net, [size[1] * 2, size[2] * 2])
-      rpn = slim.conv2d(rpn, 512, [3, 3], trainable=self.is_training, weights_initializer=self._initializer, scope="rpn_conv/3x3")
+      rpn = slim.conv2d(rpn, 256, [3, 3], trainable=self.is_training, weights_initializer=self._initializer, scope="rpn_conv/3x3")
       self._act_summaries.append(rpn)
       rpn_cls_score = slim.conv2d(rpn, self._num_scales * 3 * 2, [1, 1], trainable=self.is_training,
                                   weights_initializer=self._initializer,
@@ -124,20 +124,20 @@ class vgg16(Network):
       return rois, net
 
   def build_fv(self):
-      net = slim.repeat(self._front_lidar, 2, slim.conv2d, 64, [3, 3],
+      net = slim.repeat(self._front_lidar, 2, slim.conv2d, 32, [3, 3],
                         trainable=self.is_training, scope='fv/conv1')
       net = slim.max_pool2d(net, [2, 2], padding='SAME', scope='fv/pool1')
-      net = slim.repeat(net, 2, slim.conv2d, 128, [3, 3],
+      net = slim.repeat(net, 2, slim.conv2d, 64, [3, 3],
                         trainable=self.is_training, scope='fv/conv2')
       net = slim.max_pool2d(net, [2, 2], padding='SAME', scope='fv/pool2')
-      net = slim.repeat(net, 3, slim.conv2d, 256, [3, 3],
+      net = slim.repeat(net, 3, slim.conv2d, 128, [3, 3],
                         trainable=self.is_training, scope='fv/conv3')
       net = slim.max_pool2d(net, [2, 2], padding='SAME', scope='fv/pool3')
-      net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3],
+      net = slim.repeat(net, 3, slim.conv2d, 256, [3, 3],
                         trainable=self.is_training, scope='fv/conv4')
       # Remove the 4th pooling operation for BirdsView rpn
       #net = slim.max_pool2d(net, [2, 2], padding='SAME', scope='pool4')
-      net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3],
+      net = slim.repeat(net, 3, slim.conv2d, 256, [3, 3],
                         trainable=self.is_training, scope='fv/conv5')
       self._layers['fv/conv5_3'] = net
       self._act_summaries.append(net)
