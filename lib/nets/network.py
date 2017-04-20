@@ -26,6 +26,7 @@ from layer_utils.proposal_target_layer import proposal_target_layer
 
 from model.config import cfg
 from model.common import *
+from model.boxes3d import *
 
 
 class Network(object):
@@ -191,55 +192,6 @@ class Network(object):
     return slim.max_pool2d(crops, [2, 2], padding='SAME')
 
 
-  def fv_projection_layer(rois):
-      front_rois = np.empty([rois.shape[0], 4])
-      for idx in range(rois.shape[0]):
-          box = box_from_corners(rois[idx, :])
-          front_rois[idx, :] = box_to_front_proj(box)
-      return front_rois
-
-
-
-  def box_from_corners(corners):
-    umin,vmin,zmin,umax,vmax,zmax = corners
-    box=np.array([[umin, vmin, zmin],
-                  [umax, vmin, zmin],
-                  [umax, vmax, zmin],
-                  [umin, vmax, zmin],
-                  [umin, vmin, zmax],
-                  [umax, vmin, zmax],
-                  [umax, vmax, zmax],
-                  [umin, vmax, zmax]])
-
-    return box
-
-  def lidar_to_front_coord(xx, yy, zz):
-    THETA0,THETAn = 0, int((HORIZONTAL_MAX-HORIZONTAL_MIN)/HORIZONTAL_RESOLUTION)
-    PHI0, PHIn = 0, int((VERTICAL_MAX-VERTICAL_MIN)/VERTICAL_RESOLUTION)
-    c = ((np.arctan2(xx, -yy) - HORIZONTAL_MIN) / HORIZONTAL_RESOLUTION).astype(np.int32)
-    r = ((np.arctan2(zz, np.hypot(xx, yy)) - VERTICAL_MIN) / VERTICAL_RESOLUTION).astype(np.int32)
-    yy, xx = -int(r - PHI0), -int(c - THETA0) 
-    return xx, yy
-
-  def top_to_lidar_coord(xx, yy, zz):
-    X0, Xn = 0, int((TOP_X_MAX-TOP_X_MIN)/TOP_X_DIVISION)
-    Y0, Yn = 0, int((TOP_Y_MAX-TOP_Y_MIN)/TOP_Y_DIVISION)
-    x = ((Xn - yy) - 0.5) * TOP_X_DIVISION + TOP_X_MIN
-    y = ((Yn - xx) - 0.5) * TOP_Y_DIVISION + TOP_Y_MIN
-    z = (zz + 0.5)*TOP_Z_DIVISION + TOP_Z_MIN
-    return x,y,z
-
-  def top_to_front_coord(xx, yy, zz):
-    x, y, z = top_to_lidar_coord(xx, yy, zz)
-    xx, yy = lidar_to_front_coord(x, y, z)
-    return xx, yy
-
-  def box_to_front_proj(box):
-    front  = np.empty([box.shape[0], 2])
-    for i in range(box.shape[0]):
-        front[i,:] = top_to_front_coord(*box[i,:])
-
-    return np.hstack((front.min(axis=0), front.max(axis=0)))
 
   def _dropout_layer(self, bottom, name, ratio=0.5):
     return tf.nn.dropout(bottom, ratio, name=name)

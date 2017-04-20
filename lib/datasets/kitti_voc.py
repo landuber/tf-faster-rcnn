@@ -22,6 +22,7 @@ import uuid
 from .voc_eval import voc_eval
 from model.config import cfg
 from model.common import *
+from model.boxes3d import *
 
 
 class kitti_voc(imdb):
@@ -305,57 +306,6 @@ class kitti_voc(imdb):
                 'gt_overlaps' : overlaps,
                 'flipped' : False,
                 'seg_areas' : seg_areas}
-
-
-
-
-  def corners_from_box(box):
-    return np.hstack((box.min(axis=0), box.max(axis=0)))
-
-
-  def box_from_corners(corners):
-    umin,vmin,zmin,umax,vmax,zmax = corners
-    box=np.array([[umin, vmin, zmin],
-                  [umax, vmin, zmin],
-                  [umax, vmax, zmin],
-                  [umin, vmax, zmin],
-                  [umin, vmin, zmax],
-                  [umax, vmin, zmax],
-                  [umax, vmax, zmax],
-                  [umin, vmax, zmax]])
-
-    return box
-
-  def lidar_box_to_top_box(lidarb):
-    x0 = b[0,0]
-    y0 = b[0,1]
-    x1 = b[1,0]
-    y1 = b[1,1]
-    x2 = b[2,0]
-    y2 = b[2,1]
-    x3 = b[3,0]
-    y3 = b[3,1]
-    u0,v0=lidar_to_top_coords(x0,y0)
-    u1,v1=lidar_to_top_coords(x1,y1)
-    u2,v2=lidar_to_top_coords(x2,y2)
-    u3,v3=lidar_to_top_coords(x3,y3)
-
-    z0 = max(b[0,2], b[1,2], b[2,2], b[3,2]) # top
-    z4 = min(b[4,2], b[5,2], b[6,2], b[7,2]) # bottom
-    Zn = int((TOP_Z_MAX-TOP_Z_MIN)/TOP_Z_DIVISION)
-    zmax = int((z0-TOP_Z_MIN)/TOP_Z_DIVISION)
-    zmin = int((z4-TOP_Z_MIN)/TOP_Z_DIVISION)
-
-    umin=min(u0,u1,u2,u3)
-    umax=max(u0,u1,u2,u3)
-    vmin=min(v0,v1,v2,v3)
-    vmax=max(v0,v1,v2,v3)
-
-
-    # start from the top left corner and go clockwise
-    top_box = box_from_corners((umin,vmin,zmin,umax,vmax,zmax))
-
-    return top_box
 
   def _get_comp_id(self):
     comp_id = (self._comp_id + '_' + self._salt if self.config['use_salt']
