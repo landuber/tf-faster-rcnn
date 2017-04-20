@@ -58,11 +58,11 @@ def lidar_box_to_top_box(b):
     return top_box
 
 def fv_projection_layer(rois):
-      front_rois = np.empty([rois.shape[0], 4])
+      front_rois = np.empty((rois.shape[0], 4), dtype=np.float32)
       for idx in range(rois.shape[0]):
           box = box_from_corners(rois[idx, :])
           front_rois[idx, :] = box_to_front_proj(box)
-      return front_rois.astype(np.float32, copy=False)
+      return front_rois
 
 
 
