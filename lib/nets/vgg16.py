@@ -140,10 +140,6 @@ class vgg16(Network):
                         trainable=self.is_training, scope='fv/conv5')
       self._layers['fv/conv5_3'] = net
       self._act_summaries.append(net)
-      # doing bilinear upsampling
-      # 4x deconv for lidar
-      size = tf.shape(net)
-      net = tf.image.resize_images(net, [size[1] * 4, size[2] * 4])
 
       return net
 
