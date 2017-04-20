@@ -62,7 +62,7 @@ def fv_projection_layer(rois):
       for idx in range(rois.shape[0]):
           box = box_from_corners(rois[idx, :])
           front_rois[idx, :] = box_to_front_proj(box)
-      return front_rois.astype(np.float32)
+      return front_rois.astype(np.float32, copy=False)
 
 
 
