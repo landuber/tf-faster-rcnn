@@ -35,7 +35,7 @@ def get_minibatch(roidb, num_classes):
 
   blobs = {'image': im_blob, 'top_lidar': top_lidar_blob, 'front_lidar': front_lidar_blob}
 
-  assert len(im_scales) == 1, "Single batch only"
+  #assert len(im_scales) == 1, "Single batch only"
   assert len(roidb) == 1, "Single batch only"
   
   # gt boxes: (x1, y1, x2, y2, cls)
