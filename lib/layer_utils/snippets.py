@@ -21,8 +21,8 @@ def generate_anchors_pre(height, width, feat_stride, anchor_scales):
   """
   anchors = generate_anchors(scales=np.array(anchor_scales))
   A = anchors.shape[0]
-  shift_x = np.arange(0, width) * feat_stride * 2.
-  shift_y = np.arange(0, height) * feat_stride * 2.
+  shift_x = np.arange(0, width) * feat_stride
+  shift_y = np.arange(0, height) * feat_stride
   shift_x, shift_y = np.meshgrid(shift_x, shift_y)
   shifts = np.vstack((shift_x.ravel(), shift_y.ravel(), shift_x.ravel(), shift_y.ravel())).transpose()
   shifts = np.insert(shifts, 2, 0, axis=1)
