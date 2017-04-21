@@ -73,7 +73,7 @@ class Network(object):
   def _add_fv_lidar_summary(self, lidar, boxes):
     image = lidar
     boxes = tf.slice(boxes, [0, 0], [-1, 6])
-    boxes = tf.py_func(fv_projection_layer, [boxes], tf.float32)
+    boxes = tf.py_func(fv_projection_layer, [boxes, self._image_info], tf.float32)
     boxes.set_shape([None, 4])
     # dims for normalization
     width  = tf.to_float(tf.shape(image)[2])
@@ -200,7 +200,7 @@ class Network(object):
   def _crop_pool_fv_layer(self, bottom, rois, name):
     with tf.variable_scope(name) as scope:
       rois_front = tf.slice(rois, [0, 1], [-1, 6])
-      rois_front = tf.py_func(fv_projection_layer, [rois_front], tf.float32)
+      rois_front = tf.py_func(fv_projection_layer, [rois_front, self._image_info], tf.float32)
       rois_front.set_shape([None, 4])
       batch_ids = tf.squeeze(tf.slice(rois, [0, 0], [-1, 1], name="batch_id"), [1])
       # Get the normalized coordinates of bboxes

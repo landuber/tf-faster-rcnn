@@ -64,12 +64,12 @@ def fv_projection_layer(rois):
           front_rois[idx, :] = box_to_front_proj(box)
       return front_rois
 
-def img_projection_layer(rois):
+def img_projection_layer(rois, image_info):
       img_rois = np.empty((rois.shape[0], 4), dtype=np.float32)
       for idx in range(rois.shape[0]):
           box = box_from_corners(rois[idx, :])
           img_rois[idx, :] = box_to_rgb_proj(box)
-      return img_rois
+      return img_rois * image_info[0, 2]
 
 
 
