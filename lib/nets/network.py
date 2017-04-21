@@ -375,7 +375,7 @@ class Network(object):
     self._top_lidar = tf.placeholder(tf.float32, shape=[self._batch_size, None, None, channel])
     self._front_lidar = tf.placeholder(tf.float32, shape=[self._batch_size, None, None, 3])
     self._image = tf.placeholder(tf.float32, shape=[self._batch_size, None, None, 3])
-    self._image_info = tf.placeholder(tf.float32, shape=[self._batch_size, None, None, 3])
+    self._image_info = tf.placeholder(tf.float32, shape=[self._batch_size, 3])
     self._top_lidar_info = tf.placeholder(tf.float32, shape=[self._batch_size, 3])
     self._gt_boxes = tf.placeholder(tf.float32, shape=[None, 7])
     self._tag = tag
