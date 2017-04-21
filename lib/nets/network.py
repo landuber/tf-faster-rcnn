@@ -31,7 +31,7 @@ from model.boxes3d import *
 
 class Network(object):
   def __init__(self, batch_size=1):
-    self._feat_stride = [4, ]
+    self._feat_stride = [2, ]
     self._feat_compress = [1. / 4., ]
     self._batch_size = batch_size
     self._predictions = {}
@@ -175,7 +175,7 @@ class Network(object):
       return tf.image.roi_pooling(bootom, rois,
                                   pooled_height=cfg.POOLING_SIZE,
                                   pooled_width=cfg.POOLING_SIZE,
-                                  spatial_scale=1. / 16.)[0]
+                                  spatial_scale=1. / 2.)[0]
 
   def _crop_pool_bv_layer(self, bottom, rois, name):
     with tf.variable_scope(name) as scope:
@@ -226,8 +226,9 @@ class Network(object):
       batch_ids = tf.squeeze(tf.slice(rois, [0, 0], [-1, 1], name="batch_id"), [1])
       # Get the normalized coordinates of bboxes
       bottom_shape = tf.shape(bottom)
-      height = (tf.to_float(bottom_shape[1]) - 1.) * np.float32(self._feat_stride[0])
-      width = (tf.to_float(bottom_shape[2]) - 1.) * np.float32(self._feat_stride[0])
+      # account for the 2x upsampling unlinke the 4x upsampling for bv and fv
+      height = (tf.to_float(bottom_shape[1]) - 1.) * np.float32(self._feat_stride[0] * 2.)
+      width = (tf.to_float(bottom_shape[2]) - 1.) * np.float32(self._feat_stride[0] * 2.)
       x1 = tf.slice(rois_img, [0, 0], [-1, 1], name="x1") / width
       y1 = tf.slice(rois_img, [0, 1], [-1, 1], name="y1") / height
       x2 = tf.slice(rois_img, [0, 2], [-1, 1], name="x2") / width
@@ -290,8 +291,8 @@ class Network(object):
 
   def _anchor_component(self):
     with tf.variable_scope('ANCHOR_' + self._tag) as scope:
-      height = tf.to_int32(tf.ceil(self._top_lidar_info[0, 0] / 4.))
-      width = tf.to_int32(tf.ceil(self._top_lidar_info[0, 1] / 4.))
+      height = tf.to_int32(tf.ceil(self._top_lidar_info[0, 0] / 2.))
+      width = tf.to_int32(tf.ceil(self._top_lidar_info[0, 1] / 2.))
       anchors, anchor_length = tf.py_func(generate_anchors_pre,
                                           [height, width,
                                            self._feat_stride, self._anchor_scales],

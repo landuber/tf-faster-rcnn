@@ -97,7 +97,7 @@ class vgg16(Network):
       # change it so that the score has 2 as its channel size
       rpn_cls_score_reshape = self._reshape_layer(rpn_cls_score, 2, 'rpn_cls_score_reshape')
       rpn_cls_prob_reshape = self._softmax_layer(rpn_cls_score_reshape, "rpn_cls_prob_reshape")
-      rpn_cls_prob = self._reshape_layer(rpn_cls_prob_reshape, self._num_scales * 6, "rpn_cls_prob")
+      rpn_cls_prob = self._reshape_layer(rpn_cls_prob_reshape, self._num_scales * 3 * 2, "rpn_cls_prob")
       rpn_bbox_pred = slim.conv2d(rpn, self._num_scales * 3 * 6, [1, 1], trainable=self.is_training,
                                   weights_initializer=self._initializer,
                                   padding='VALID', activation_fn=None, scope='rpn_bbox_pred')
@@ -108,6 +108,7 @@ class vgg16(Network):
         rpn_labels = self._anchor_target_layer(rpn_cls_score, "anchor")
         # Try to have a determinestic order for the computing graph, for reproducibility
         with tf.control_dependencies([rpn_labels]):
+          # Sample rois from above into foreground/background percentage split using gt_boxes
           rois, _ = self._proposal_target_layer(rois, roi_scores, "rpn_rois")
       else:
         if cfg.TEST.MODE == 'nms':
