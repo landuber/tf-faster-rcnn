@@ -182,6 +182,7 @@ class Network(object):
       batch_ids = tf.squeeze(tf.slice(rois, [0, 0], [-1, 1], name="batch_id"), [1])
       # Get the normalized coordinates of bboxes
       bottom_shape = tf.shape(bottom)
+      # account for the 4x upsampling 
       height = (tf.to_float(bottom_shape[1]) - 1.) * np.float32(self._feat_stride[0] / 2.)
       width = (tf.to_float(bottom_shape[2]) - 1.) * np.float32(self._feat_stride[0] / 2.)
       x1 = tf.slice(rois, [0, 1], [-1, 1], name="x1") / width
@@ -204,6 +205,7 @@ class Network(object):
       batch_ids = tf.squeeze(tf.slice(rois, [0, 0], [-1, 1], name="batch_id"), [1])
       # Get the normalized coordinates of bboxes
       bottom_shape = tf.shape(bottom)
+      # account for the 4x upsampling 
       height = (tf.to_float(bottom_shape[1]) - 1.) * np.float32(self._feat_stride[0] / 2.)
       width = (tf.to_float(bottom_shape[2]) - 1.) * np.float32(self._feat_stride[0] / 2.)
       x1 = tf.slice(rois_front, [0, 0], [-1, 1], name="x1") / width
@@ -226,7 +228,6 @@ class Network(object):
       batch_ids = tf.squeeze(tf.slice(rois, [0, 0], [-1, 1], name="batch_id"), [1])
       # Get the normalized coordinates of bboxes
       bottom_shape = tf.shape(bottom)
-      # account for the 2x upsampling unlinke the 4x upsampling for bv and fv
       height = (tf.to_float(bottom_shape[1]) - 1.) * np.float32(self._feat_stride[0])
       width = (tf.to_float(bottom_shape[2]) - 1.) * np.float32(self._feat_stride[0])
       x1 = tf.slice(rois_img, [0, 0], [-1, 1], name="x1") / width
