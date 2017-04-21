@@ -97,7 +97,6 @@ class Network(object):
     boxes = tf.slice(boxes, [0, 0], [-1, 6])
     boxes = tf.py_func(img_projection_layer, [boxes], tf.float32)
     boxes.set_shape([None, 4])
-    boxes = boxes * self._image_info[0][2]
     # bgr to rgb (opencv uses bgr)
     channels = tf.unstack (image, axis=-1)
     image    = tf.stack ([channels[2], channels[1], channels[0]], axis=-1)
