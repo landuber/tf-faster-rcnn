@@ -224,7 +224,6 @@ class Network(object):
       rois_img = tf.slice(rois, [0, 1], [-1, 6])
       rois_img = tf.py_func(img_projection_layer, [rois_img], tf.float32)
       rois_img.set_shape([None, 4])
-      rois_img = rois_img * self._image_info[0][2]
       batch_ids = tf.squeeze(tf.slice(rois, [0, 0], [-1, 1], name="batch_id"), [1])
       # Get the normalized coordinates of bboxes
       bottom_shape = tf.shape(bottom)
