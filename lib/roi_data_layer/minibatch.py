@@ -58,7 +58,7 @@ def get_minibatch(roidb, num_classes):
   blobs['gt_boxes'] = gt_boxes
   blobs['gt_corners'] = gt_corners
   blobs['im_info'] = np.array(
-    [[im_blob.shape[1], im_blob.shape[2], im_scales[0]]],
+    [[im_blob.shape[1], im_blob.shape[2], 1]],
     dtype=np.float32)
   blobs['top_lidar_info'] = np.array(
     [[top_lidar_blob.shape[1], top_lidar_blob.shape[2], top_lidar_blob.shape[3]]],
