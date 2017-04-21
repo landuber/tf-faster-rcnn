@@ -190,7 +190,7 @@ class Network(object):
       y2 = tf.slice(rois, [0, 5], [-1, 1], name="y2") / height
       # Won't be backpropagated to rois anyway, but to save time
       bboxes = tf.stop_gradient(tf.concat([y1, x1, y2, x2], axis=1))
-      pre_pool_size = cfg.POOLING_SIZE * 4
+      pre_pool_size = cfg.POOLING_SIZE * 2
       crops = tf.image.crop_and_resize(bottom, bboxes, tf.to_int32(batch_ids), [pre_pool_size, pre_pool_size], name="crops")
 
     return slim.max_pool2d(crops, [2, 2], padding='SAME')
@@ -212,7 +212,7 @@ class Network(object):
       y2 = tf.slice(rois_front, [0, 3], [-1, 1], name="y2") / height
       # Won't be backpropagated to rois anyway, but to save time
       bboxes = tf.stop_gradient(tf.concat([y1, x1, y2, x2], axis=1))
-      pre_pool_size = cfg.POOLING_SIZE * 4
+      pre_pool_size = cfg.POOLING_SIZE * 2
       crops = tf.image.crop_and_resize(bottom, bboxes, tf.to_int32(batch_ids), [pre_pool_size, pre_pool_size], name="crops")
 
     return slim.max_pool2d(crops, [2, 2], padding='SAME')
@@ -231,7 +231,7 @@ class Network(object):
       x1 = tf.slice(rois_img, [0, 0], [-1, 1], name="x1") / width
       y1 = tf.slice(rois_img, [0, 1], [-1, 1], name="y1") / height
       x2 = tf.slice(rois_img, [0, 2], [-1, 1], name="x2") / width
-      y2 = tf.slice(roisimgt, [0, 3], [-1, 1], name="y2") / height
+      y2 = tf.slice(rois_img, [0, 3], [-1, 1], name="y2") / height
       # Won't be backpropagated to rois anyway, but to save time
       bboxes = tf.stop_gradient(tf.concat([y1, x1, y2, x2], axis=1))
       pre_pool_size = cfg.POOLING_SIZE * 2

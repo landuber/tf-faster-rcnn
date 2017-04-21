@@ -75,8 +75,10 @@ class vgg16(Network):
       #net = slim.max_pool2d(net, [2, 2], padding='SAME', scope='pool4')
       net = slim.repeat(net, 3, slim.conv2d, 256, [3, 3],
                         trainable=self.is_training, scope='bv/conv5')
-      self._layers['bv/conv5_3'] = net
-      self._act_summaries.append(net)
+      size = tf.shape(net)
+      pre_roi_pooling_net = tf.image.resize_images(net, [size[1] * 4, size[2] * 4])
+      self._layers['bv/conv5_3'] = pre_roi_pooling_net
+      self._act_summaries.append(pre_roi_pooling_net)
 
       # build the anchors for the image
       self._anchor_component()
@@ -122,7 +124,7 @@ class vgg16(Network):
       self._predictions["rpn_bbox_pred"] = rpn_bbox_pred
       self._predictions["rois"] = rois
 
-      return rois, net
+      return rois, pre_roi_pooling_net
 
   def build_fv(self):
       net = slim.repeat(self._front_lidar, 2, slim.conv2d, 32, [3, 3],
@@ -140,10 +142,12 @@ class vgg16(Network):
       #net = slim.max_pool2d(net, [2, 2], padding='SAME', scope='pool4')
       net = slim.repeat(net, 3, slim.conv2d, 256, [3, 3],
                         trainable=self.is_training, scope='fv/conv5')
-      self._layers['fv/conv5_3'] = net
-      self._act_summaries.append(net)
+      size = tf.shape(net)
+      pre_roi_pooling_net = tf.image.resize_images(net, [size[1] * 4, size[2] * 4])
+      self._layers['fv/conv5_3'] = pre_roi_pooling_net
+      self._act_summaries.append(pre_roi_pooling_net)
 
-      return net
+      return pre_roi_pooling_net
 
   def build_img(self):
       net = slim.repeat(self._image, 2, slim.conv2d, 32, [3, 3],
@@ -161,10 +165,12 @@ class vgg16(Network):
       #net = slim.max_pool2d(net, [2, 2], padding='SAME', scope='pool4')
       net = slim.repeat(net, 3, slim.conv2d, 256, [3, 3],
                         trainable=self.is_training, scope='im/conv5')
-      self._layers['im/conv5_3'] = net
-      self._act_summaries.append(net)
+      size = tf.shape(net)
+      pre_roi_pooling_net = tf.image.resize_images(net, [size[1] * 4, size[2] * 4])
+      self._layers['im/conv5_3'] = pre_roi_pooling_net
+      self._act_summaries.append(pre_roi_pooling_net)
 
-      return net
+      return pre_roi_pooling_net
 
   def roi_pool(self, rois, net_bv, net_fv, net_img):
       # pooling
