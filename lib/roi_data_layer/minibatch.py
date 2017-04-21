@@ -35,7 +35,7 @@ def get_minibatch(roidb, num_classes):
 
   blobs = {'image': im_blob, 'top_lidar': top_lidar_blob, 'front_lidar': front_lidar_blob}
 
-  #assert len(im_scales) == 1, "Single batch only"
+  assert len(im_scales) == 1, "Single batch only"
   assert len(roidb) == 1, "Single batch only"
   
   # gt boxes: (x1, y1, x2, y2, cls)
@@ -58,7 +58,7 @@ def get_minibatch(roidb, num_classes):
   blobs['gt_boxes'] = gt_boxes
   blobs['gt_corners'] = gt_corners
   blobs['im_info'] = np.array(
-    [[im_blob.shape[1], im_blob.shape[2], 1]],
+    [[im_blob.shape[1], im_blob.shape[2], im_scales[0]]],
     dtype=np.float32)
   blobs['top_lidar_info'] = np.array(
     [[top_lidar_blob.shape[1], top_lidar_blob.shape[2], top_lidar_blob.shape[3]]],
@@ -180,12 +180,12 @@ def _get_image_blob(roidb, scale_inds):
   im_scales = []
   for i in range(num_images):
     im = cv2.imread(roidb[i]['image'])
-    #if roidb[i]['flipped']:
-    #  im = im[:, ::-1, :]
-    #target_size = cfg.TRAIN.SCALES[scale_inds[i]]
-    #im, im_scale = prep_im_for_blob(im, cfg.PIXEL_MEANS, target_size,
-    #                cfg.TRAIN.MAX_SIZE)
-    #im_scales.append(im_scale)
+    if roidb[i]['flipped']:
+      im = im[:, ::-1, :]
+    target_size = cfg.TRAIN.SCALES[scale_inds[i]]
+    im, im_scale = prep_im_for_blob(im, cfg.PIXEL_MEANS, target_size,
+                    cfg.TRAIN.MAX_SIZE)
+    im_scales.append(im_scale)
     processed_ims.append(im)
 
   # Create a blob to hold the input images
