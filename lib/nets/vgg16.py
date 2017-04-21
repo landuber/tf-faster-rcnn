@@ -46,12 +46,13 @@ class vgg16(Network):
 
       rois, net_bv = self.build_bv()
       net_fv = self.build_fv()
-      #net_img = self.build_img()
+      net_img = self.build_img()
 
       bv_pool = self._crop_pool_bv_layer(net_bv, rois, "bv/pool5")
       fv_pool = self._crop_pool_fv_layer(net_fv, rois, "fv/pool5")
+      img_pool = self._crop_pool_img_layer(net_img, rois, "img/pool5")
 
-      self.build_rcnn(tf.add(bv_pool, fv_pool) / 2.0)
+      self.build_rcnn(tf.add_n([bv_pool, fv_pool, img_pool]) / 3.0)
 
       self._score_summaries.update(self._predictions)
 
@@ -145,27 +146,23 @@ class vgg16(Network):
       return net
 
   def build_img(self):
-      net = slim.repeat(self._image, 2, slim.conv2d, 64, [3, 3],
+      net = slim.repeat(self._image, 2, slim.conv2d, 32, [3, 3],
                         trainable=self.is_training, scope='im/conv1')
       net = slim.max_pool2d(net, [2, 2], padding='SAME', scope='im/pool1')
-      net = slim.repeat(net, 2, slim.conv2d, 128, [3, 3],
+      net = slim.repeat(net, 2, slim.conv2d, 64, [3, 3],
                         trainable=self.is_training, scope='im/conv2')
       net = slim.max_pool2d(net, [2, 2], padding='SAME', scope='img/pool2')
-      net = slim.repeat(net, 3, slim.conv2d, 256, [3, 3],
+      net = slim.repeat(net, 3, slim.conv2d, 128, [3, 3],
                         trainable=self.is_training, scope='im/conv3')
       net = slim.max_pool2d(net, [2, 2], padding='SAME', scope='im/pool3')
-      net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3],
+      net = slim.repeat(net, 3, slim.conv2d, 256, [3, 3],
                         trainable=self.is_training, scope='im/conv4')
       # Remove the 4th pooling operation for BirdsView rpn
       #net = slim.max_pool2d(net, [2, 2], padding='SAME', scope='pool4')
-      net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3],
+      net = slim.repeat(net, 3, slim.conv2d, 256, [3, 3],
                         trainable=self.is_training, scope='im/conv5')
       self._layers['im/conv5_3'] = net
       self._act_summaries.append(net)
-      # doing bilinear upsampling
-      # 4x deconv for lidar
-      size = tf.shape(net)
-      net = tf.image.resize_images(net, [size[1] * 2, size[2] * 2])
 
       return net
 

@@ -91,9 +91,12 @@ class Network(object):
     
     return tf.summary.image('ground2_truth', image)
 
-  def _add_top_lidar_summary(self, image, boxes):
+  def _add_img_summary(self, image, boxes):
     # add back mean
     image += cfg.PIXEL_MEANS
+    boxes = tf.slice(boxes, [0, 0], [-1, 6])
+    boxes = tf.py_func(img_projection_layer, [boxes], tf.float32)
+    boxes.set_shape([None, 4])
     # bgr to rgb (opencv uses bgr)
     channels = tf.unstack (image, axis=-1)
     image    = tf.stack ([channels[2], channels[1], channels[0]], axis=-1)
@@ -111,7 +114,7 @@ class Network(object):
     boxes = tf.expand_dims(boxes, dim=0)
     image = tf.image.draw_bounding_boxes(image, boxes)
     
-    return tf.summary.image('ground_truth', image)
+    return tf.summary.image('ground3_truth', image)
 
   def _add_act_summary(self, tensor):
     tf.summary.histogram('ACT/' + tensor.op.name + '/activations', tensor)
@@ -215,6 +218,26 @@ class Network(object):
     return slim.max_pool2d(crops, [2, 2], padding='SAME')
 
 
+  def _crop_pool_img_layer(self, bottom, rois, name):
+    with tf.variable_scope(name) as scope:
+      rois_img = tf.slice(rois, [0, 1], [-1, 6])
+      rois_img = tf.py_func(img_projection_layer, [rois_img], tf.float32)
+      rois_img.set_shape([None, 4])
+      batch_ids = tf.squeeze(tf.slice(rois, [0, 0], [-1, 1], name="batch_id"), [1])
+      # Get the normalized coordinates of bboxes
+      bottom_shape = tf.shape(bottom)
+      height = (tf.to_float(bottom_shape[1]) - 1.) * np.float32(self._feat_stride[0])
+      width = (tf.to_float(bottom_shape[2]) - 1.) * np.float32(self._feat_stride[0])
+      x1 = tf.slice(rois_img, [0, 0], [-1, 1], name="x1") / width
+      y1 = tf.slice(rois_img, [0, 1], [-1, 1], name="y1") / height
+      x2 = tf.slice(rois_img, [0, 2], [-1, 1], name="x2") / width
+      y2 = tf.slice(roisimgt, [0, 3], [-1, 1], name="y2") / height
+      # Won't be backpropagated to rois anyway, but to save time
+      bboxes = tf.stop_gradient(tf.concat([y1, x1, y2, x2], axis=1))
+      pre_pool_size = cfg.POOLING_SIZE * 2
+      crops = tf.image.crop_and_resize(bottom, bboxes, tf.to_int32(batch_ids), [pre_pool_size, pre_pool_size], name="crops")
+
+    return slim.max_pool2d(crops, [2, 2], padding='SAME')
 
   def _dropout_layer(self, bottom, name, ratio=0.5):
     return tf.nn.dropout(bottom, ratio, name=name)
@@ -351,7 +374,7 @@ class Network(object):
     channel = Zn + 2
     self._top_lidar = tf.placeholder(tf.float32, shape=[self._batch_size, None, None, channel])
     self._front_lidar = tf.placeholder(tf.float32, shape=[self._batch_size, None, None, 3])
-    #self._image = tf.placeholder(tf.float32, shape=[self._batch_size, None, None, 3])
+    self._image = tf.placeholder(tf.float32, shape=[self._batch_size, None, None, 3])
     self._top_lidar_info = tf.placeholder(tf.float32, shape=[self._batch_size, 3])
     self._gt_boxes = tf.placeholder(tf.float32, shape=[None, 7])
     self._tag = tag
@@ -392,9 +415,9 @@ class Network(object):
 
     val_summaries = []
     with tf.device("/cpu:0"):
-      #val_summaries.append(self._add_top_lidar_summary(self._image, self._gt_boxes))
       val_summaries.append(self._add_bv_lidar_summary(self._top_lidar, self._gt_boxes))
       val_summaries.append(self._add_fv_lidar_summary(self._front_lidar, self._gt_boxes))
+      val_summaries.append(self._add_img_summary(self._image, self._gt_boxes))
       for key, var in self._event_summaries.items():
         val_summaries.append(tf.summary.scalar(key, var))
       for key, var in self._score_summaries.items():
@@ -428,7 +451,7 @@ class Network(object):
     return cls_score, cls_prob, bbox_pred, rois
 
   def get_summary(self, sess, blobs):
-    feed_dict = {self._top_lidar: blobs['top_lidar'], self._front_lidar: blobs['front_lidar'], \
+    feed_dict = {self._top_lidar: blobs['top_lidar'], self._front_lidar: blobs['front_lidar'], self._image: blobs['image'], \
             self._top_lidar_info: blobs['top_lidar_info'], self._gt_boxes: blobs['gt_boxes']}
 
     summary = sess.run(self._summary_op_val, feed_dict=feed_dict)
@@ -436,7 +459,7 @@ class Network(object):
     return summary
 
   def train_step(self, sess, blobs, train_op):
-    feed_dict = {self._top_lidar: blobs['top_lidar'], self._front_lidar: blobs['front_lidar'], \
+    feed_dict = {self._top_lidar: blobs['top_lidar'], self._front_lidar: blobs['front_lidar'], self._image: blobs['image'], \
             self._top_lidar_info: blobs['top_lidar_info'], self._gt_boxes: blobs['gt_boxes']}
     rpn_loss_cls, rpn_loss_box, loss_cls, loss_box, loss, _ = sess.run([self._losses["rpn_cross_entropy"],
                                                                         self._losses['rpn_loss_box'],
@@ -448,7 +471,7 @@ class Network(object):
     return rpn_loss_cls, rpn_loss_box, loss_cls, loss_box, loss
 
   def train_step_with_summary(self, sess, blobs, train_op):
-    feed_dict = {self._top_lidar: blobs['top_lidar'], self._front_lidar: blobs['front_lidar'], \
+    feed_dict = {self._top_lidar: blobs['top_lidar'], self._front_lidar: blobs['front_lidar'], self._image: blobs['image'], \
             self._top_lidar_info: blobs['top_lidar_info'], self._gt_boxes: blobs['gt_boxes']}
     rpn_loss_cls, rpn_loss_box, loss_cls, loss_box, loss, summary, _ = sess.run([self._losses["rpn_cross_entropy"],
                                                                                  self._losses['rpn_loss_box'],
@@ -461,7 +484,7 @@ class Network(object):
     return rpn_loss_cls, rpn_loss_box, loss_cls, loss_box, loss, summary
 
   def train_step_no_return(self, sess, blobs, train_op):
-    feed_dict = {self._top_lidar: blobs['top_lidar'], self._front_lidar: blobs['front_lidar'], \
+    feed_dict = {self._top_lidar: blobs['top_lidar'], self._front_lidar: blobs['front_lidar'], self._image: blobs['image'], \
             self._top_lidar_info: blobs['top_lidar_info'], self._gt_boxes: blobs['gt_boxes']}
     sess.run([train_op], feed_dict=feed_dict)
 

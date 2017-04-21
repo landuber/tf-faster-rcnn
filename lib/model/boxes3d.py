@@ -64,6 +64,13 @@ def fv_projection_layer(rois):
           front_rois[idx, :] = box_to_front_proj(box)
       return front_rois
 
+def img_projection_layer(rois):
+      img_rois = np.empty((rois.shape[0], 4), dtype=np.float32)
+      for idx in range(rois.shape[0]):
+          box = box_from_corners(rois[idx, :])
+          img_rois[idx, :] = box_to_rgb_proj(box)
+      return img_rois
+
 
 
 def box_from_corners(corners):
@@ -87,6 +94,11 @@ def lidar_to_front_coord(xx, yy, zz):
     yy, xx = PHIn - int(r), THETAn - int(c) 
     return xx, yy
 
+def lidar_to_rgb_coord(xx, yy, zz):
+    lidar_point = np.array([xx, yy, zz, 1.], dtype=np.float32).reshape((4, 1))
+    rgb_point =  np.dot(np.array(P2), np.dot(np.array(R0_RECT), np.dot(np.array(TR_VELO_TO_CAM), lidar_point)))
+    return (rgb_point[0, :] / rgb_point[2, :], rgb_point[1, :] / rgb_point[2, :])
+
 def top_to_lidar_coord(xx, yy, zz):
     X0, Xn = 0, int((TOP_X_MAX-TOP_X_MIN)/TOP_X_DIVISION)
     Y0, Yn = 0, int((TOP_Y_MAX-TOP_Y_MIN)/TOP_Y_DIVISION)
@@ -100,9 +112,21 @@ def top_to_front_coord(xx, yy, zz):
     xx, yy = lidar_to_front_coord(x, y, z)
     return xx, yy
 
+def top_to_rgb_coord(xx, yy, zz):
+    x, y, z = top_to_lidar_coord(xx, yy, zz)
+    xx, yy = lidar_to_rgb_coord(x, y, z)
+    return xx, yy
+
 def box_to_front_proj(box):
     front  = np.empty([box.shape[0], 2])
     for i in range(box.shape[0]):
         front[i,:] = top_to_front_coord(*box[i,:])
 
     return np.hstack((front.min(axis=0), front.max(axis=0)))
+
+def box_to_rgb_proj(box):
+    rgb  = np.empty([box.shape[0], 2])
+    for i in range(box.shape[0]):
+        rgb[i,:] = top_to_rgb_coord(*box[i,:])
+
+    return np.hstack((rgb.min(axis=0), rgb.max(axis=0)))

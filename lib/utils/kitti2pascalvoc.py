@@ -32,6 +32,24 @@ VERTICAL_MIN = -VERTICAL_FOV / 2
 HORIZONTAL_RESOLUTION = HORIZONTAL_FOV/512 #
 VERTICAL_RESOLUTION = VERTICAL_FOV / 64 # 26.8 / 64
 
+TR_VELO_TO_CAM = ([[ 7.533745000000e-03, -9.999714000000e-01, -6.166020000000e-04, -4.069766000000e-03],
+                   [ 1.480249000000e-02,  7.280733000000e-04, -9.998902000000e-01, -7.631618000000e-02],
+                   [ 9.998621000000e-01,  7.523790000000e-03,  1.480755000000e-02, -2.717806000000e-01],
+                   [ 0.                ,  0.                ,  0.                ,  1.                ]])
+
+R0_RECT        = ([[ 9.999239000000e-01,  9.837760000000e-03, -7.445048000000e-03, 0.                ],
+                   [-9.869795000000e-03,  9.999421000000e-01, -4.278459000000e-03, 0.                ],
+                   [ 7.402527000000e-03,  4.351614000000e-03,  9.999631000000e-01, 0.                ],
+                   [ 0.                ,  0.                ,  0.                , 1.                ]])
+
+P2             = ([[ 7.215377000000e+02,  0.000000000000e+00,  6.095593000000e+02, 4.485728000000e+01],
+                   [ 0.000000000000e+00,  7.215377000000e+02,  1.728540000000e+02, 2.163791000000e-01],
+                   [ 0.000000000000e+00,  0.000000000000e+00,  1.000000000000e+00, 2.745884000000e-03]])
+
+P3             = ([[ 7.215377000000e+02,  0.000000000000e+00,  6.095593000000e+02, -3.395242000000e+02],
+                   [ 0.000000000000e+00,  7.215377000000e+02,  1.728540000000e+02,  2.199936000000e+00],
+                   [ 0.000000000000e+00,  0.000000000000e+00,  1.000000000000e+00,  2.729905000000e-03]])
+
 
 #rgb camera
 MATRIX_Mt = ([[  2.34773698e-04,   1.04494074e-02,   9.99945389e-01,  0.00000000e+00],
@@ -325,7 +343,7 @@ def build_voc_dirs(outdir):
 
     return os.path.join(outdir, 'Annotations'), os.path.join(outdir, 'JPEGImages'), os.path.join(outdir, 'Lidar'), os.path.join(outdir, 'ImageSets', 'Main')
 
-def _draw_on_image(img, objs, class_sets_dict, front=False):
+def _draw_on_image(img, objs, class_sets_dict, side=0):
     colors = [(86, 0, 240), (173, 225, 61), (54, 137, 255),\
               (151, 0, 255), (243, 223, 48), (0, 117, 255),\
               (58, 184, 14), (86, 67, 140), (121, 82, 6),\
@@ -337,12 +355,14 @@ def _draw_on_image(img, objs, class_sets_dict, front=False):
         cls_id = class_sets_dict[obj['class']]
         rect_color = colors[cls_id % len(colors)]
         text_color = (255, 0, 255)
-        if front:
+        if side == 0: # rgb
+            x1, y1, x2, y2 = box_to_rgb_proj(box).astype(np.int32)
+        elif side == 1: # top view
+            x1, y1, x2, y2 = box_to_top_proj(box)
+        else: # front view
             x1, y1, x2, y2 = box_to_front_proj(box)
             rect_color = (0, 0, 0)
             text_color = (0, 0, 0)
-        else:
-            x1, y1, x2, y2 = box_to_top_proj(box)
 
 
         if obj['class'] == 'dontcare':
@@ -352,7 +372,7 @@ def _draw_on_image(img, objs, class_sets_dict, front=False):
         text = '{:s}*|'.format(obj['class'][:3]) if obj['difficult'] == 1 else '{:s}|'.format(obj['class'][:3])
         text += '{:.1f}|'.format(obj['truncation'])
         text += str(obj['occlusion'])
-        if not front:
+        if not side == 2:
             cv2.putText(img, text, (x1-2, y2-2), font, 0.5, text_color, 1)
     return img
 
@@ -373,10 +393,23 @@ def top_to_lidar_coord(xx, yy, zz):
     z = (zz + 0.5)*TOP_Z_DIVISION + TOP_Z_MIN
     return x,y,z
 
+def lidar_to_rgb_coord(xx, yy, zz):
+    lidar_point = np.array([xx, yy, zz, 1.], dtype=np.float32).reshape((4, 1))
+    rgb_point =  np.dot(np.array(P2), np.dot(np.array(R0_RECT), np.dot(np.array(TR_VELO_TO_CAM), lidar_point)))
+    return (rgb_point[0, :] / rgb_point[2, :], rgb_point[1, :] / rgb_point[2, :])
+
 def top_to_front_coord(xx, yy, zz):
     x, y, z = top_to_lidar_coord(xx, yy, zz)
     xx, yy = lidar_to_front_coord(x, y, z)
     return xx, yy
+
+def top_to_rgb_coord(xx, yy, zz):
+    x, y, z = top_to_lidar_coord(xx, yy, zz)
+    xx, yy = lidar_to_rgb_coord(x, y, z)
+    return xx, yy
+    
+
+
 
 def box_to_top_proj(box):
     return np.hstack((box.min(axis=0)[:2], box.max(axis=0)[:2]))
@@ -387,6 +420,14 @@ def box_to_front_proj(box):
         front[i,:] = top_to_front_coord(*box[i,:])
 
     return np.hstack((front.min(axis=0), front.max(axis=0)))
+
+def box_to_rgb_proj(box):
+    rgb  = np.empty([box.shape[0], 2])
+    for i in range(box.shape[0]):
+        rgb[i,:] = top_to_rgb_coord(*box[i,:])
+
+    return np.hstack((rgb.min(axis=0), rgb.max(axis=0)))
+
 
 
 
@@ -541,7 +582,7 @@ if __name__ == '__main__':
                 print('discretizing end')
                 if _draw:
                     #top = _draw_on_image(top, objs, class_sets_dict)
-                    front = _draw_on_image(front, objs, class_sets_dict, front=True)
+                    front = _draw_on_image(front, objs, class_sets_dict, side=2)
                 cv2.imwrite(os.path.join(_dest_img_dir, stem + '_front.jpg'), front)
             if 0:
                 lidar_file = os.path.join(_dest_lidar_dir, stem + '.bin')
@@ -551,11 +592,17 @@ if __name__ == '__main__':
                 _, top = lidar_to_top_tensor(lidar)
                 print('discretizing end')
                 if _draw:
-                    top = _draw_on_image(top, objs, class_sets_dict)
+                    top = _draw_on_image(top, objs, class_sets_dict, side=1)
                 cv2.imwrite(os.path.join(_dest_img_dir, stem + '_top.jpg'), top)
+            if 1:
+                lidar_file = os.path.join(_dest_lidar_dir, stem + '.bin')
+                lidar = np.fromfile(lidar_file, dtype=np.float32)
+                lidar = lidar.reshape((-1, 4))
+                if _draw:
+                    top = _draw_on_image(img, objs, class_sets_dict, side=0)
+                cv2.imwrite(os.path.join(_dest_img_dir, stem + '.jpg'), img)
             
             
-            cv2.imwrite(os.path.join(_dest_img_dir, stem + '.jpg'), img)
             xmlfile = os.path.join(_dest_label_dir, stem + '.xml')
             with open(xmlfile, 'w') as f:
                 f.write(doc.toprettyxml(indent='	'))
