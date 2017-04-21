@@ -129,4 +129,4 @@ def box_to_rgb_proj(box):
     for i in range(box.shape[0]):
         rgb[i,:] = top_to_rgb_coord(*box[i,:])
 
-    return np.hstack((rgb.min(axis=0), rgb.max(axis=0))).astype(np.int32)
+    return np.hstack((rgb.min(axis=0), rgb.max(axis=0)))

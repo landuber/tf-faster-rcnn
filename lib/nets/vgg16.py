@@ -166,7 +166,7 @@ class vgg16(Network):
       net = slim.repeat(net, 3, slim.conv2d, 256, [3, 3],
                         trainable=self.is_training, scope='im/conv5')
       size = tf.shape(net)
-      pre_roi_pooling_net = tf.image.resize_images(net, [size[1] * 4, size[2] * 4])
+      pre_roi_pooling_net = tf.image.resize_images(net, [size[1] * 2, size[2] * 2])
       self._layers['im/conv5_3'] = pre_roi_pooling_net
       self._act_summaries.append(pre_roi_pooling_net)
 
