@@ -78,8 +78,8 @@ def anchor_target_layer(rpn_cls_score, gt_boxes, im_info, _feat_stride, all_anch
 
   # fg label: above threshold IOU
   labels[max_overlaps >= cfg.TRAIN.RPN_POSITIVE_OVERLAP] = 1
-  #print('overlaps > rpn_positive_overlap')
-  #print(np.sum(max_overlaps >= cfg.TRAIN.RPN_POSITIVE_OVERLAP))
+  print('overlaps > rpn_positive_overlap')
+  print(np.sum(max_overlaps >= cfg.TRAIN.RPN_POSITIVE_OVERLAP))
 
   if cfg.TRAIN.RPN_CLOBBER_POSITIVES:
     # assign bg labels last so that negative labels can clobber positives

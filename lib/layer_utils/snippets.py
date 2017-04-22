@@ -33,6 +33,5 @@ def generate_anchors_pre(height, width, feat_stride, anchor_scales):
   anchors = anchors.reshape((1, A, 6)) + shifts.reshape((1, K, 6)).transpose((1, 0, 2))
   anchors = anchors.reshape((K * A, 6)).astype(np.float32, copy=False)
   length = np.int32(anchors.shape[0])
-  print(anchors[:10, :])
 
   return anchors, length
