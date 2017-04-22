@@ -31,6 +31,12 @@ def generate_anchors_pre(height, width, feat_stride, anchor_scales):
   shifts = np.insert(shifts, 5, 0, axis=1)
 
   K = shifts.shape[0]
+  print('height')
+  print(height)
+  print('width')
+  print(width)
+  print('feat_stride')
+  print(feat_stride)
   print("K")
   print(K)
   # width changes faster, so here it is H, W, C
