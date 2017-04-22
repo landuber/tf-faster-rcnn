@@ -46,7 +46,7 @@ __C.TRAIN.TRUNCATED = False
 __C.TRAIN.BIAS_DECAY = False
 
 # Whether to add ground truth boxes to the pool when sampling regions
-__C.TRAIN.USE_GT = True # Revert to False
+__C.TRAIN.USE_GT = False 
 
 # Whether to use aspect-ratio grouping of training images, introduced merely for saving
 # GPU memory
@@ -56,7 +56,7 @@ __C.TRAIN.ASPECT_GROUPING = False
 __C.TRAIN.SNAPSHOT_KEPT = 3
 
 # The time interval for saving tensorflow summaries
-__C.TRAIN.SUMMARY_INTERVAL = 10 # todo: revert back to 180
+__C.TRAIN.SUMMARY_INTERVAL = 180 
 
 # Scale to use during training (can NOT list multiple scales)
 # The scale is the pixel size of an image's shortest side
