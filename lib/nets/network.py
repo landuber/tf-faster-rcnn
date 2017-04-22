@@ -421,7 +421,10 @@ class Network(object):
       val_summaries.append(self._add_bv_lidar_summary(self._top_lidar, self._gt_boxes))
       val_summaries.append(self._add_fv_lidar_summary(self._front_lidar, self._gt_boxes))
       val_summaries.append(self._add_img_summary(self._image, self._gt_boxes))
-      rois = tf.slice(self._predictions["rois"], [0, 1], [-1, 6])
+      rois_label = self._proposal_targets['labels']
+      rois_select = tf.where(tf.equal(rois_label, 1))
+      rois = tf.gather(self._predictions['rois'], rpn_select)
+      rois = tf.slice(rois, [0, 1], [-1, 6])
       val_summaries.append(self._add_bv_lidar_summary(self._top_lidar, rois, name="rois_bv"))
       val_summaries.append(self._add_fv_lidar_summary(self._front_lidar, rois, name="rois_fv"))
       val_summaries.append(self._add_img_summary(self._image, rois, name="rois_img"))
