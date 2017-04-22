@@ -46,6 +46,9 @@ def generate_anchors(base_size=6, ratios=[0.5, 1, 2],
   scales wrt a reference (0, 0, 15, 15) window.
   """
 
+  print('scales')
+  print(scales)
+
   base_anchor = np.array([1, 1, 1, base_size, base_size, ANCHOR_DEPTH]) - 1
   ratio_anchors = _ratio_enum(base_anchor, ratios)
   anchors = np.vstack([_scale_enum(ratio_anchors[i, :], scales)
