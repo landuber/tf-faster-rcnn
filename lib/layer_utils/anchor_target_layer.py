@@ -61,8 +61,8 @@ def anchor_target_layer(rpn_cls_score, gt_boxes, im_info, _feat_stride, all_anch
   # Get the maximum overlap for each gt
   gt_max_overlaps = overlaps[gt_argmax_overlaps,
                              np.arange(overlaps.shape[1])]
-  print('max overlaps')
-  print(gt_argmax_overlaps)
+  #print('max overlaps')
+  #print(gt_argmax_overlaps)
   # Get all the anchor indexes that have maximum overlap with any gt
   gt_argmax_overlaps = np.where(overlaps == gt_max_overlaps)[0]
 
@@ -76,8 +76,8 @@ def anchor_target_layer(rpn_cls_score, gt_boxes, im_info, _feat_stride, all_anch
 
   # fg label: above threshold IOU
   labels[max_overlaps >= cfg.TRAIN.RPN_POSITIVE_OVERLAP] = 1
-  print('overlaps > rpn_positive_overlap')
-  print(np.sum(max_overlaps >= cfg.TRAIN.RPN_POSITIVE_OVERLAP))
+  #print('overlaps > rpn_positive_overlap')
+  #print(np.sum(max_overlaps >= cfg.TRAIN.RPN_POSITIVE_OVERLAP))
 
   if cfg.TRAIN.RPN_CLOBBER_POSITIVES:
     # assign bg labels last so that negative labels can clobber positives

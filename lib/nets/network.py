@@ -45,7 +45,7 @@ class Network(object):
     self._event_summaries = {}
 
 
-  def _add_bv_lidar_summary(self, lidar, boxes):
+  def _add_bv_lidar_summary(self, lidar, boxes, name="bv_truth"):
     image = tf.reduce_sum(lidar,axis=-1)
     #
     image = tf.reduce_max(image) - image
@@ -68,9 +68,9 @@ class Network(object):
     boxes = tf.expand_dims(boxes, dim=0)
     image = tf.image.draw_bounding_boxes(image, boxes)
     
-    return tf.summary.image('ground_truth', image)
+    return tf.summary.image(name, image)
 
-  def _add_fv_lidar_summary(self, lidar, boxes):
+  def _add_fv_lidar_summary(self, lidar, boxes, name="fv_truth"):
     image = lidar
     boxes = tf.slice(boxes, [0, 0], [-1, 6])
     boxes = tf.py_func(fv_projection_layer, [boxes], tf.float32)
@@ -89,9 +89,9 @@ class Network(object):
     boxes = tf.expand_dims(boxes, dim=0)
     image = tf.image.draw_bounding_boxes(image, boxes)
     
-    return tf.summary.image('ground2_truth', image)
+    return tf.summary.image(name, image)
 
-  def _add_img_summary(self, image, boxes):
+  def _add_img_summary(self, image, boxes, name="img_truth"):
     # add back mean
     image += cfg.PIXEL_MEANS
     boxes = tf.slice(boxes, [0, 0], [-1, 6])
@@ -114,7 +114,7 @@ class Network(object):
     boxes = tf.expand_dims(boxes, dim=0)
     image = tf.image.draw_bounding_boxes(image, boxes)
     
-    return tf.summary.image('ground3_truth', image)
+    return tf.summary.image(name, image)
 
   def _add_act_summary(self, tensor):
     tf.summary.histogram('ACT/' + tensor.op.name + '/activations', tensor)
@@ -421,6 +421,10 @@ class Network(object):
       val_summaries.append(self._add_bv_lidar_summary(self._top_lidar, self._gt_boxes))
       val_summaries.append(self._add_fv_lidar_summary(self._front_lidar, self._gt_boxes))
       val_summaries.append(self._add_img_summary(self._image, self._gt_boxes))
+      rois = tf.slice(self._predictions["rois"], [0, 1], [-1, 6])
+      val_summaries.append(self._add_bv_lidar_summary(self._top_lidar, rois, name="rois_bv"))
+      val_summaries.append(self._add_fv_lidar_summary(self._front_lidar, rois, name="rois_fv"))
+      val_summaries.append(self._add_img_summary(self._image, rois, name="rois_img"))
       for key, var in self._event_summaries.items():
         val_summaries.append(tf.summary.scalar(key, var))
       for key, var in self._score_summaries.items():
