@@ -51,6 +51,8 @@ def proposal_target_layer(rpn_rois, rpn_scores, gt_boxes, _num_classes):
   bbox_targets = bbox_targets.reshape(-1, _num_classes * 6)
   bbox_inside_weights = bbox_inside_weights.reshape(-1, _num_classes * 6)
   bbox_outside_weights = np.array(bbox_inside_weights > 0).astype(np.float32)
+  print('bbox_targets')
+  print(bbox_targets)
 
   return rois, roi_scores, labels, bbox_targets, bbox_inside_weights, bbox_outside_weights
 
