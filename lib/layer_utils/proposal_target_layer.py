@@ -155,6 +155,6 @@ def _sample_rois(all_rois, all_scores, gt_boxes, fg_rois_per_image, rois_per_ima
   print('rois')
   print(rois)
   print('rois scores')
-  print(rois_scores)
+  print(roi_scores)
 
   return labels, rois, roi_scores, bbox_targets, bbox_inside_weights
