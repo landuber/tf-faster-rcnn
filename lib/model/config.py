@@ -264,7 +264,7 @@ __C.POOLING_MODE = 'crop'
 __C.POOLING_SIZE = 7
 
 # Anchor scales for RPN
-__C.ANCHOR_SCALES = [8,16,32]
+__C.ANCHOR_SCALES = [1,2,4]
 
 
 def get_output_dir(imdb, weights_filename):
