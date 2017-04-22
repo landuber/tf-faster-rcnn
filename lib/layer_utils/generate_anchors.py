@@ -46,8 +46,8 @@ def generate_anchors(base_size=1, ratios=[0.5, 1, 2],
   scales wrt a reference (0, 0, 15, 15) window.
   """
 
-  ws = np.array([16, 39,  6, 16, 15, 30,  5, 14, 4])
-  hs = np.array([39, 16, 16,  6, 30, 15, 14,  5, 10])
+  ws = np.array([16, 39,  6, 16, 20, 50,  40, 45, 15])
+  hs = np.array([39, 16, 16,  6, 50, 20,  40, 15, 45])
   ds = np.ones((ws.shape[0]), dtype=np.float32) * ANCHOR_DEPTH
   anchors = _mkanchors(ws, hs, ds, 0., 0., ANCHOR_DEPTH / 2.)
 

@@ -46,7 +46,7 @@ __C.TRAIN.TRUNCATED = False
 __C.TRAIN.BIAS_DECAY = False
 
 # Whether to add ground truth boxes to the pool when sampling regions
-__C.TRAIN.USE_GT = False
+__C.TRAIN.USE_GT = True # Revert to False
 
 # Whether to use aspect-ratio grouping of training images, introduced merely for saving
 # GPU memory
