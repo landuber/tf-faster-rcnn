@@ -39,8 +39,8 @@ from model.common import *
 #       [-167., -343.,  184.,  360.]])
 
 #todo: determine the appropriate base_size from the paper
-def generate_anchors(base_size=6, ratios=[0.5, 1, 2],
-                     scales=2 ** np.arange(0, 3)):
+def generate_anchors(base_size=16, ratios=[0.5, 1, 2],
+                     scales=2 ** np.arange(3, 6)):
   """
   Generate anchor (reference) windows by enumerating aspect ratios X
   scales wrt a reference (0, 0, 15, 15) window.
