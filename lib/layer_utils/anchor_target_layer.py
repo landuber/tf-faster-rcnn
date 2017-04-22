@@ -47,10 +47,11 @@ def anchor_target_layer(rpn_cls_score, gt_boxes, im_info, _feat_stride, all_anch
 
   # overlaps between the anchors and the gt boxes
   # overlaps (ex, gt)
-  anchors_rect = anchors[:,[0,1,3,4]]
+  anchors_rect = np.copy(anchors[:,[0,1,3,4]])
+  gt_boxes_rect = np.copy(gt_boxes[:, [0,1,3,4]])
   overlaps = bbox_overlaps(
     np.ascontiguousarray(anchors_rect, dtype=np.float),
-    np.ascontiguousarray(gt_boxes, dtype=np.float))
+    np.ascontiguousarray(gt_boxes_rect, dtype=np.float))
   # gt_boxes indices with maximum overlap with a given anchor
   argmax_overlaps = overlaps.argmax(axis=1)
   # For each anchor find the gt which it has maximum overlap with
