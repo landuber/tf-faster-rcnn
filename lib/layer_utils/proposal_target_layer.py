@@ -51,8 +51,6 @@ def proposal_target_layer(rpn_rois, rpn_scores, gt_boxes, _num_classes):
   bbox_targets = bbox_targets.reshape(-1, _num_classes * 6)
   bbox_inside_weights = bbox_inside_weights.reshape(-1, _num_classes * 6)
   bbox_outside_weights = np.array(bbox_inside_weights > 0).astype(np.float32)
-  print('bbox_targets')
-  print(bbox_targets)
 
   return rois, roi_scores, labels, bbox_targets, bbox_inside_weights, bbox_outside_weights
 
@@ -158,12 +156,5 @@ def _sample_rois(all_rois, all_scores, gt_boxes, fg_rois_per_image, rois_per_ima
 
   bbox_targets, bbox_inside_weights = \
     _get_bbox_regression_labels(bbox_target_data, num_classes)
-
-  #print('labels')
-  #print(labels)
-  #print('rois')
-  #print(rois)
-  print('gt_boxes')
-  print(gt_boxes)
 
   return labels, rois, roi_scores, bbox_targets, bbox_inside_weights
