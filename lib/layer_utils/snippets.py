@@ -21,8 +21,6 @@ def generate_anchors_pre(height, width, feat_stride, anchor_scales):
   """
   anchors = generate_anchors(scales=np.array(anchor_scales))
   A = anchors.shape[0]
-  print("A")
-  print(A)
   shift_x = np.arange(0, width) * feat_stride
   shift_y = np.arange(0, height) * feat_stride
   shift_x, shift_y = np.meshgrid(shift_x, shift_y)
@@ -31,17 +29,10 @@ def generate_anchors_pre(height, width, feat_stride, anchor_scales):
   shifts = np.insert(shifts, 5, 0, axis=1)
 
   K = shifts.shape[0]
-  print('height')
-  print(height)
-  print('width')
-  print(width)
-  print('feat_stride')
-  print(feat_stride)
-  print("shifts")
-  print(shifts[1:5, :])
   # width changes faster, so here it is H, W, C
   anchors = anchors.reshape((1, A, 6)) + shifts.reshape((1, K, 6)).transpose((1, 0, 2))
   anchors = anchors.reshape((K * A, 6)).astype(np.float32, copy=False)
   length = np.int32(anchors.shape[0])
+  print(anchor[:10, :])
 
   return anchors, length
