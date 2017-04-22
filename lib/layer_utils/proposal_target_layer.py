@@ -13,6 +13,7 @@ from model.config import cfg
 from model.bbox_transform import bbox_transform
 from utils.cython_bbox import bbox_overlaps
 
+numpy.set_printoptions(threshold='nan')
 
 def proposal_target_layer(rpn_rois, rpn_scores, gt_boxes, _num_classes):
   """
