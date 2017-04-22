@@ -38,7 +38,7 @@ def generate_anchors_pre(height, width, feat_stride, anchor_scales):
   print('feat_stride')
   print(feat_stride)
   print("shifts")
-  print(shifts[0, :])
+  print(shifts[1:5, :])
   # width changes faster, so here it is H, W, C
   anchors = anchors.reshape((1, A, 6)) + shifts.reshape((1, K, 6)).transpose((1, 0, 2))
   anchors = anchors.reshape((K * A, 6)).astype(np.float32, copy=False)
