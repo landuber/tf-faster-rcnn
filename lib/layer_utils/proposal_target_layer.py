@@ -100,8 +100,8 @@ def _sample_rois(all_rois, all_scores, gt_boxes, fg_rois_per_image, rois_per_ima
   examples.
   """
   # overlaps: (rois x gt_boxes)
-  all_rois_rect = all_rois[:, [1,2,4,5]]
-  gt_boxes_rect = gt_boxes[:, [0,1,3,4]]
+  all_rois_rect = np.copy(all_rois[:, [1,2,4,5]])
+  gt_boxes_rect = np.copy(gt_boxes[:, [0,1,3,4]])
   overlaps = bbox_overlaps(
     np.ascontiguousarray(all_rois_rect, dtype=np.float),
     np.ascontiguousarray(gt_boxes_rect, dtype=np.float))
@@ -149,5 +149,12 @@ def _sample_rois(all_rois, all_scores, gt_boxes, fg_rois_per_image, rois_per_ima
 
   bbox_targets, bbox_inside_weights = \
     _get_bbox_regression_labels(bbox_target_data, num_classes)
+
+  print('labels')
+  print(labels)
+  print('rois')
+  print(rois)
+  print('rois scores')
+  print(rois_scores)
 
   return labels, rois, roi_scores, bbox_targets, bbox_inside_weights

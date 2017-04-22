@@ -173,26 +173,18 @@ class vgg16(Network):
 
       return pre_roi_pooling_net
 
-  def roi_pool(self, rois, net_bv, net_fv, net_img):
-      # pooling
-      if cfg.POOLING_MODE == 'crop':
-        #todo: implement pool transformation and mean calculation
-        mean_pool = self._crop_pool_layer(net_bv, rois, "bv/pool5")
-        return mean_pool
-      else:
-        raise NotImplementedError
 
   def build_rcnn(self, pool5):
       # rcnn
       pool5_flat = slim.flatten(pool5, scope='flatten')
-      fc6 = slim.fully_connected(pool5_flat, 4096, scope='fc6', trainable=self.is_training)
+      fc6 = slim.fully_connected(pool5_flat, 4096, scope='fc6')
       if self.is_training:
         fc6 = slim.dropout(fc6, scope='dropout6')
-      fc7 = slim.fully_connected(fc6, 4096, scope='fc7', trainable=self.is_training)
+      fc7 = slim.fully_connected(fc6, 4096, scope='fc7')
       if self.is_training:
         fc7 = slim.dropout(fc7, scope='dropout7')
       # Adding fc8 for the lidar
-      fc8 = slim.fully_connected(fc7, 4096, scope='fc8', trainable=self.is_training)
+      fc8 = slim.fully_connected(fc7, 4096, scope='fc8')
       if self.is_training:
         fc8 = slim.dropout(fc8, scope='dropout8')
       cls_score = slim.fully_connected(fc8, self._num_classes, weights_initializer=self._initializer, trainable=self.is_training,
