@@ -372,6 +372,7 @@ class Network(object):
   def create_architecture(self, sess, mode, num_classes,
                           tag=None, anchor_scales=[8, 16, 32]):
     # calculate the depth of the input tensor dyanamically
+    print(anchor_scales)
     Zn = int((TOP_Z_MAX-TOP_Z_MIN)/TOP_Z_DIVISION)
     channel = Zn + 2
     self._top_lidar = tf.placeholder(tf.float32, shape=[self._batch_size, None, None, channel])

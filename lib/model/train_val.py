@@ -112,6 +112,7 @@ class SolverWrapper(object):
       # Set the random seed for tensorflow
       tf.set_random_seed(cfg.RNG_SEED)
       # Build the main computation graph
+      print(cfg.ANCHOR_SCALES)
       layers = self.net.create_architecture(sess, 'TRAIN', self.imdb.num_classes,
                                             tag='default', anchor_scales=cfg.ANCHOR_SCALES)
       # Define the loss
