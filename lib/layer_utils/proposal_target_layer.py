@@ -23,8 +23,6 @@ def proposal_target_layer(rpn_rois, rpn_scores, gt_boxes, _num_classes):
 
   # Proposal ROIs (0, x1, y1, z1, x2, y2, z2) coming from RPN
   # (i.e., rpn.proposal_layer.ProposalLayer), or any other source
-  print('rpn_scores')
-  print(rpn_scores)
   all_rois = rpn_rois
   all_scores = rpn_scores
 
@@ -163,7 +161,7 @@ def _sample_rois(all_rois, all_scores, gt_boxes, fg_rois_per_image, rois_per_ima
   #print(labels)
   #print('rois')
   #print(rois)
-  #print('gt_boxes')
-  #print(gt_boxes)
+  print('gt_boxes')
+  print(gt_boxes)
 
   return labels, rois, roi_scores, bbox_targets, bbox_inside_weights
