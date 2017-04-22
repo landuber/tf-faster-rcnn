@@ -55,6 +55,7 @@ def generate_anchors(base_size=1, ratios=[0.5, 1, 2],
   #ratio_anchors = _ratio_enum(base_anchor, ratios)
   #anchors = np.vstack([_scale_enum(ratio_anchors[i, :], scales)
   #                     for i in range(ratio_anchors.shape[0])])
+  print(anchors)
   return anchors
 
 
