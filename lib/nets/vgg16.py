@@ -104,6 +104,7 @@ class vgg16(Network):
       if self.is_training:
         # Get all top scoring anchors after filtering via non-maximal suppression
         rois, roi_scores = self._proposal_layer(rpn_cls_prob, rpn_bbox_pred, "rois")
+        self._predictions["pre_rois"] = rois
         # Using IoU determine the labels for each anchor type at all locations
         rpn_labels = self._anchor_target_layer(rpn_cls_score, "anchor")
         # Try to have a determinestic order for the computing graph, for reproducibility
