@@ -22,8 +22,8 @@ def proposal_target_layer(rpn_rois, rpn_scores, gt_boxes, _num_classes):
 
   # Proposal ROIs (0, x1, y1, z1, x2, y2, z2) coming from RPN
   # (i.e., rpn.proposal_layer.ProposalLayer), or any other source
-  print('rpn_rois shape')
-  print(rpn_rois.shape)
+  print('rpn_scores')
+  print(rpn_scores)
   all_rois = rpn_rois
   all_scores = rpn_scores
 
