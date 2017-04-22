@@ -33,9 +33,7 @@ class kitti_voc(imdb):
       else devkit_path
     self._data_path = self._devkit_path
     self._classes = ('dontcare',  # always index 0
-                     'pedestrian',
-                     'car',
-                     'cyclist')
+                     'car')
     self._class_to_ind = dict(list(zip(self.classes, list(range(self.num_classes)))))
     self._image_ext = '.jpg'
     self._lidar_ext = '.bin'

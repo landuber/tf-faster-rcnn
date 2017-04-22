@@ -421,12 +421,12 @@ class Network(object):
       val_summaries.append(self._add_bv_lidar_summary(self._top_lidar, self._gt_boxes))
       val_summaries.append(self._add_fv_lidar_summary(self._front_lidar, self._gt_boxes))
       val_summaries.append(self._add_img_summary(self._image, self._gt_boxes))
-      pre_rois = tf.slice(self._predictions["pre_rois"], [0, 1], [-1, 6])
       rois = tf.slice(self._predictions["rois"], [0, 1], [-1, 6])
       val_summaries.append(self._add_bv_lidar_summary(self._top_lidar, rois, name="rois_bv"))
-      val_summaries.append(self._add_bv_lidar_summary(self._top_lidar, pre_rois, name="pre_rois_bv"))
       val_summaries.append(self._add_fv_lidar_summary(self._front_lidar, rois, name="rois_fv"))
       val_summaries.append(self._add_img_summary(self._image, rois, name="rois_img"))
+      #pre_rois = tf.slice(self._predictions["pre_rois"], [0, 1], [-1, 6])
+      #val_summaries.append(self._add_bv_lidar_summary(self._top_lidar, pre_rois, name="pre_rois_bv"))
       for key, var in self._event_summaries.items():
         val_summaries.append(tf.summary.scalar(key, var))
       for key, var in self._score_summaries.items():
