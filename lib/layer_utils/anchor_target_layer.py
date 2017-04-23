@@ -88,6 +88,8 @@ def anchor_target_layer(rpn_cls_score, gt_boxes, im_info, _feat_stride, all_anch
   # subsample positive labels if we have too many
   num_fg = int(cfg.TRAIN.RPN_FG_FRACTION * cfg.TRAIN.RPN_BATCHSIZE)
   fg_inds = np.where(labels == 1)[0]
+  print('Inside anchor target')
+  print(np.sum(labels == 1))
   if len(fg_inds) > num_fg:
     disable_inds = npr.choice(
       fg_inds, size=(len(fg_inds) - num_fg), replace=False)
