@@ -117,8 +117,8 @@ def _sample_rois(all_rois, all_scores, gt_boxes, fg_rois_per_image, rois_per_ima
   bg_inds = np.where((max_overlaps < cfg.TRAIN.BG_THRESH_HI) &
                      (max_overlaps >= cfg.TRAIN.BG_THRESH_LO))[0]
 
-  print('ones')
-  print(np.sum(labels == 1))
+  print('top 4')
+  print(np.argpartition(max_overlaps, -4)[-4:])
   print('foregrounds: max_overlap >= fg_thresh')
   print(fg_inds.size)
   print('background: max_overlap < bg_thresh_hi & >= bg_thres_lo')
