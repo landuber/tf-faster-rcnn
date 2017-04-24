@@ -34,10 +34,8 @@ def anchor_target_layer(rpn_cls_score, gt_boxes, im_info, _feat_stride, all_anch
   inds_inside = np.where(
     (all_anchors[:, 0] >= -_allowed_border) &
     (all_anchors[:, 1] >= -_allowed_border) &
-    (all_anchors[:, 2] >= -_allowed_border) &
     (all_anchors[:, 3] < im_info[1] + _allowed_border) &  # width
-    (all_anchors[:, 4] < im_info[0] + _allowed_border) &  # height
-    (all_anchors[:, 5] < im_info[2] + _allowed_border)   # depth
+    (all_anchors[:, 4] < im_info[0] + _allowed_border)   # height
   )[0]
 
   # keep only inside anchors
@@ -88,8 +86,6 @@ def anchor_target_layer(rpn_cls_score, gt_boxes, im_info, _feat_stride, all_anch
   # subsample positive labels if we have too many
   num_fg = int(cfg.TRAIN.RPN_FG_FRACTION * cfg.TRAIN.RPN_BATCHSIZE)
   fg_inds = np.where(labels == 1)[0]
-  print('Inside anchor target')
-  print(np.sum(labels == 1))
   if len(fg_inds) > num_fg:
     disable_inds = npr.choice(
       fg_inds, size=(len(fg_inds) - num_fg), replace=False)
@@ -103,6 +99,9 @@ def anchor_target_layer(rpn_cls_score, gt_boxes, im_info, _feat_stride, all_anch
       bg_inds, size=(len(bg_inds) - num_bg), replace=False)
     labels[disable_inds] = -1
 
+  
+  print('Inside anchor target')
+  print(np.sum(labels == 1))
   bbox_targets = np.zeros((len(inds_inside), 6), dtype=np.float32)
   # Compute the delta_x, delta_y, delta_z, delta_w, delta_h, delta_d
   bbox_targets = _compute_targets(anchors, gt_boxes[argmax_overlaps, :])
