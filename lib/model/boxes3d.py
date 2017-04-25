@@ -27,9 +27,10 @@ def lidar_to_top_coords(x,y,z=None):
     return xx, yy
 
 def top_box_to_lidar_box(b):
-    lidar_box = np.empty_like(b, dtype=np.float32)
+    lidar_box = np.empty((b.shape[0], 8, 3), dtype=np.float32)
     for idx in range(b.shape[0]):
-        lidar_box[idx, :] = np.array(top_to_lidar_coord(b[idx,0], b[idx,1],b[idx,2]))
+        lidar_box[idx, :] = box_from_corners(np.hstack(top_to_lidar_coord(b[idx,0], b[idx,1], b[idx,2]), 
+                                             top_to_lidar_coord(b[idx,3], b[idx,4], b[idx,5])))
     return lidar_box
 
 
