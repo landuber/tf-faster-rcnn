@@ -102,7 +102,7 @@ def _get_corner_regression_labels(corner_target_data, num_classes):
     start = int(24 * cls)
     end = start + 24
     corner_targets[ind, start:end] = corner_target_data[ind, 1:]
-    corner_inside_weights[ind, start:end] = cfg.TRAIN.BBOX_INSIDE_WEIGHTS
+    corner_inside_weights[ind, start:end] = np.ones((24), dtype=np.float32)
   return corner_targets, corner_inside_weights
 
 
