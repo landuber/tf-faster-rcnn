@@ -41,6 +41,7 @@ def bbox_transform(ex_rois, gt_rois):
 def corner_transform(rois_corners, gt_corners):
     deltas = rois_corners[:,3,:] -  rois_corners[:,0,:]
     diagonals = np.hypot(np.hypot(deltas[:,0], deltas[:,1]), deltas[:,2])
+    diagonals = diagonals[:, np.newaxis]
     targets = (gt_corners - rois_corners) / diagonals
     return targets
 
