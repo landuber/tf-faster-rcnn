@@ -276,9 +276,9 @@ class Network(object):
       rois.set_shape([cfg.TRAIN.BATCH_SIZE, 7])
       roi_scores.set_shape([cfg.TRAIN.BATCH_SIZE])
       labels.set_shape([cfg.TRAIN.BATCH_SIZE, 1])
-      bbox_targets.set_shape([cfg.TRAIN.BATCH_SIZE, self._num_classes * 24])
-      bbox_inside_weights.set_shape([cfg.TRAIN.BATCH_SIZE, self._num_classes * 24])
-      bbox_outside_weights.set_shape([cfg.TRAIN.BATCH_SIZE, self._num_classes * 24])
+      corner_targets.set_shape([cfg.TRAIN.BATCH_SIZE, self._num_classes * 24])
+      corner_inside_weights.set_shape([cfg.TRAIN.BATCH_SIZE, self._num_classes * 24])
+      corner_outside_weights.set_shape([cfg.TRAIN.BATCH_SIZE, self._num_classes * 24])
 
       self._proposal_targets['rois'] = rois
       self._proposal_targets['labels'] = tf.to_int32(labels, name="to_int32")
