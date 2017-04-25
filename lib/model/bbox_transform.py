@@ -38,6 +38,15 @@ def bbox_transform(ex_rois, gt_rois):
   return targets
 
 
+def corner_transform(rois_corners, gt_corners):
+    deltas = rois_corners[:,3,:] -  rois_corners[:,0,:]
+    diagonals = np.hypot(np.hypot(deltas[:,0], deltas[:,1]), deltas[:,2])
+    targets = (gt_corners - rois_corners) / diagonals
+    return targets
+
+
+
+
 def bbox_transform_inv(boxes, deltas):
   if boxes.shape[0] == 0:
     return np.zeros((0, deltas.shape[1]), dtype=deltas.dtype)

@@ -191,10 +191,10 @@ class vgg16(Network):
       cls_score = slim.fully_connected(fc8, self._num_classes, weights_initializer=self._initializer, trainable=self.is_training,
                               activation_fn=None, scope='cls_score')
       cls_prob = self._softmax_layer(cls_score, "cls_prob")
-      bbox_pred = slim.fully_connected(fc7, self._num_classes * 6, weights_initializer=self._initializer_bbox,
+      corner_pred = slim.fully_connected(fc7, self._num_classes * 24, weights_initializer=self._initializer_bbox,
                               trainable=self.is_training,
-                              activation_fn=None, scope='bbox_pred')
+                              activation_fn=None, scope='corner_pred')
       self._predictions["cls_score"] = cls_score
       self._predictions["cls_prob"] = cls_prob
-      self._predictions["bbox_pred"] = bbox_pred
+      self._predictions["corner_pred"] = corner_pred
 

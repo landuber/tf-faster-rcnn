@@ -10,12 +10,13 @@ from __future__ import print_function
 import numpy as np
 import numpy.random as npr
 from model.config import cfg
-from model.bbox_transform import bbox_transform
+from model.bbox_transform import *
 from utils.cython_bbox import bbox_overlaps
+from model.boes3d import *
 
 np.set_printoptions(threshold='nan')
 
-def proposal_target_layer(rpn_rois, rpn_scores, gt_boxes, _num_classes):
+def proposal_target_layer(rpn_rois, rpn_scores, gt_boxes, gt_corners, _num_classes):
   """
   Assign object detection proposals to ground-truth targets. Produces proposal
   classification labels and bounding-box regression targets.
@@ -41,18 +42,18 @@ def proposal_target_layer(rpn_rois, rpn_scores, gt_boxes, _num_classes):
 
   # Sample rois with classification labels and bounding box regression
   # targets
-  labels, rois, roi_scores, bbox_targets, bbox_inside_weights = _sample_rois(
-    all_rois, all_scores, gt_boxes, fg_rois_per_image,
+  labels, rois, roi_scores, corner_targets, corner_inside_weights = _sample_rois(
+    all_rois, all_scores, gt_boxes, gt_corners, fg_rois_per_image,
     rois_per_image, _num_classes)
 
   rois = rois.reshape(-1, 7)
   roi_scores = roi_scores.reshape(-1)
   labels = labels.reshape(-1, 1)
-  bbox_targets = bbox_targets.reshape(-1, _num_classes * 6)
-  bbox_inside_weights = bbox_inside_weights.reshape(-1, _num_classes * 6)
-  bbox_outside_weights = np.array(bbox_inside_weights > 0).astype(np.float32)
+  corner_targets = corner_targets.reshape(-1, _num_classes * 24)
+  corner_inside_weights = corner_inside_weights.reshape(-1, _num_classes * 24)
+  corner_outside_weights = np.array(corner_inside_weights > 0).astype(np.float32)
 
-  return rois, roi_scores, labels, bbox_targets, bbox_inside_weights, bbox_outside_weights
+  return rois, roi_scores, labels, corner_targets, corner_inside_weights, corner_outside_weights
 
 
 def _get_bbox_regression_labels(bbox_target_data, num_classes):
@@ -80,6 +81,31 @@ def _get_bbox_regression_labels(bbox_target_data, num_classes):
   return bbox_targets, bbox_inside_weights
 
 
+def _get_corner_regression_labels(corner_target_data, num_classes):
+  """Bounding-box regression targets (bbox_target_data) are stored in a
+  compact form N x (class, tx, ty, tw, th)
+
+  This function expands those targets into the 4-of-4*K representation used
+  by the network (i.e. only one class has non-zero targets).
+
+  Returns:
+      bbox_target (ndarray): N x 4K blob of regression targets
+      bbox_inside_weights (ndarray): N x 4K blob of loss weights
+  """
+
+  clss = corner_target_data[:, 0]
+  corner_targets = np.zeros((clss.size, 24 * num_classes), dtype=np.float32)
+  corner_inside_weights = np.zeros(corner_targets.shape, dtype=np.float32)
+  inds = np.where(clss > 0)[0]
+  for ind in inds:
+    cls = clss[ind]
+    start = int(24 * cls)
+    end = start + 24
+    corner_targets[ind, start:end] = corner_target_data[ind, 1:]
+    corner_inside_weights[ind, start:end] = cfg.TRAIN.BBOX_INSIDE_WEIGHTS
+  return corner_targets, corner_inside_weights
+
+
 def _compute_targets(ex_rois, gt_rois, labels):
   """Compute bounding-box regression targets for an image."""
 
@@ -96,7 +122,24 @@ def _compute_targets(ex_rois, gt_rois, labels):
     (labels[:, np.newaxis], targets)).astype(np.float32, copy=False)
 
 
-def _sample_rois(all_rois, all_scores, gt_boxes, fg_rois_per_image, rois_per_image, num_classes):
+def _compute_corner_targets(rois_corners, gt_corners, labels):
+  """Compute bounding-box regression targets for an image."""
+
+  assert rois_corners.shape[0] == gt_corners.shape[0]
+  assert rois_corners.shape[1] == 8
+  assert rois_corners.shape[2] == 3
+  assert gt_corners.shape[1] == 8
+  assert gt_corners.shape[2] == 3
+
+  targets = corners_transform(rois_corners, gt_corners)
+  targets = targets.reshape(-1)
+  return np.hstack(
+    (labels[:, np.newaxis], targets)).astype(np.float32, copy=False)
+  
+
+
+
+def _sample_rois(all_rois, all_scores, gt_boxes, gt_corners, fg_rois_per_image, rois_per_image, num_classes):
   """Generate a random sample of RoIs comprising foreground and background
   examples.
   """
@@ -153,10 +196,10 @@ def _sample_rois(all_rois, all_scores, gt_boxes, fg_rois_per_image, rois_per_ima
   rois = all_rois[keep_inds]
   roi_scores = all_scores[keep_inds]
 
-  bbox_target_data = _compute_targets(
-    rois[:, 1:7], gt_boxes[gt_assignment[keep_inds], :6], labels)
+  corner_target_data = _compute_corner_targets(
+    top_box_to_lidar_box(rois[:, 1:7]), gt_corners[gt_assignment[keep_inds], :], labels)
 
-  bbox_targets, bbox_inside_weights = \
-    _get_bbox_regression_labels(bbox_target_data, num_classes)
+  corner_targets, corner_inside_weights = \
+    _get_corner_regression_labels(corner_target_data, num_classes)
 
-  return labels, rois, roi_scores, bbox_targets, bbox_inside_weights
+  return labels, rois, roi_scores, corner_targets, corner_inside_weights

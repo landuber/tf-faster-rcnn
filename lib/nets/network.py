@@ -268,23 +268,23 @@ class Network(object):
 
   def _proposal_target_layer(self, rois, roi_scores, name):
     with tf.variable_scope(name) as scope:
-      rois, roi_scores, labels, bbox_targets, bbox_inside_weights, bbox_outside_weights = tf.py_func(
+      rois, roi_scores, labels, corner_targets, corner_inside_weights, corner_outside_weights = tf.py_func(
         proposal_target_layer,
-        [rois, roi_scores, self._gt_boxes, self._num_classes],
+        [rois, roi_scores, self.gt_boxes, self._gt_corners, self._num_classes],
         [tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32])
 
       rois.set_shape([cfg.TRAIN.BATCH_SIZE, 7])
       roi_scores.set_shape([cfg.TRAIN.BATCH_SIZE])
       labels.set_shape([cfg.TRAIN.BATCH_SIZE, 1])
-      bbox_targets.set_shape([cfg.TRAIN.BATCH_SIZE, self._num_classes * 6])
-      bbox_inside_weights.set_shape([cfg.TRAIN.BATCH_SIZE, self._num_classes * 6])
-      bbox_outside_weights.set_shape([cfg.TRAIN.BATCH_SIZE, self._num_classes * 6])
+      bbox_targets.set_shape([cfg.TRAIN.BATCH_SIZE, self._num_classes * 24])
+      bbox_inside_weights.set_shape([cfg.TRAIN.BATCH_SIZE, self._num_classes * 24])
+      bbox_outside_weights.set_shape([cfg.TRAIN.BATCH_SIZE, self._num_classes * 24])
 
       self._proposal_targets['rois'] = rois
       self._proposal_targets['labels'] = tf.to_int32(labels, name="to_int32")
-      self._proposal_targets['bbox_targets'] = bbox_targets
-      self._proposal_targets['bbox_inside_weights'] = bbox_inside_weights
-      self._proposal_targets['bbox_outside_weights'] = bbox_outside_weights
+      self._proposal_targets['corner_targets'] = corner_targets
+      self._proposal_targets['corner_inside_weights'] = corner_inside_weights
+      self._proposal_targets['corner_outside_weights'] = corner_outside_weights
 
       self._score_summaries.update(self._proposal_targets)
 
@@ -351,19 +351,19 @@ class Network(object):
           logits=tf.reshape(cls_score, [-1, self._num_classes]), labels=label))
 
       # RCNN, bbox loss
-      bbox_pred = self._predictions['bbox_pred']
-      bbox_targets = self._proposal_targets['bbox_targets']
-      bbox_inside_weights = self._proposal_targets['bbox_inside_weights']
-      bbox_outside_weights = self._proposal_targets['bbox_outside_weights']
+      corner_pred = self._predictions['corner_pred']
+      corner_targets = self._proposal_targets['corner_targets']
+      corner_inside_weights = self._proposal_targets['corner_inside_weights']
+      corner_outside_weights = self._proposal_targets['corner_outside_weights']
 
-      loss_box = self._smooth_l1_loss(bbox_pred, bbox_targets, bbox_inside_weights, bbox_outside_weights)
+      loss_corner = self._smooth_l1_loss(corner_pred, corner_targets, corner_inside_weights, corner_outside_weights)
 
       self._losses['cross_entropy'] = cross_entropy
-      self._losses['loss_box'] = loss_box
+      self._losses['loss_corner'] = loss_corner
       self._losses['rpn_cross_entropy'] = rpn_cross_entropy
       self._losses['rpn_loss_box'] = rpn_loss_box
 
-      loss = cross_entropy + loss_box + rpn_cross_entropy + rpn_loss_box
+      loss = cross_entropy + loss_corner + rpn_cross_entropy + rpn_loss_box
       self._losses['total_loss'] = loss
 
       self._event_summaries.update(self._losses)
@@ -381,6 +381,7 @@ class Network(object):
     self._image_info = tf.placeholder(tf.float32, shape=[self._batch_size, 3])
     self._top_lidar_info = tf.placeholder(tf.float32, shape=[self._batch_size, 3])
     self._gt_boxes = tf.placeholder(tf.float32, shape=[None, 7])
+    self._gt_corners = tf.placeholder(tf.float32, shape=[None, 8, 3])
     self._tag = tag
 
     self._num_classes = num_classes
@@ -460,16 +461,17 @@ class Network(object):
   def test_top_lidar(self, sess, image, top_lidar_info):
     feed_dict = {self._top_lidar: image,
                  self._top_lidar_info: top_lidar_info}
-    cls_score, cls_prob, bbox_pred, rois = sess.run([self._predictions["cls_score"],
+    cls_score, cls_prob, corner_pred, rois = sess.run([self._predictions["cls_score"],
                                                      self._predictions['cls_prob'],
-                                                     self._predictions['bbox_pred'],
+                                                     self._predictions['corner_pred'],
                                                      self._predictions['rois']],
                                                     feed_dict=feed_dict)
     return cls_score, cls_prob, bbox_pred, rois
 
   def get_summary(self, sess, blobs):
     feed_dict = {self._top_lidar: blobs['top_lidar'], self._front_lidar: blobs['front_lidar'], self._image: blobs['image'], \
-            self._image_info: blobs['im_info'], self._top_lidar_info: blobs['top_lidar_info'], self._gt_boxes: blobs['gt_boxes']}
+            self._image_info: blobs['im_info'], self._top_lidar_info: blobs['top_lidar_info'], self._gt_boxes: blobs['gt_boxes'], \
+            self._gt_corners: blobs['gt_corners']}
 
     summary = sess.run(self._summary_op_val, feed_dict=feed_dict)
 
@@ -477,31 +479,34 @@ class Network(object):
 
   def train_step(self, sess, blobs, train_op):
     feed_dict = {self._top_lidar: blobs['top_lidar'], self._front_lidar: blobs['front_lidar'], self._image: blobs['image'], \
-            self._image_info: blobs['im_info'], self._top_lidar_info: blobs['top_lidar_info'], self._gt_boxes: blobs['gt_boxes']}
-    rpn_loss_cls, rpn_loss_box, loss_cls, loss_box, loss, _ = sess.run([self._losses["rpn_cross_entropy"],
+            self._image_info: blobs['im_info'], self._top_lidar_info: blobs['top_lidar_info'], self._gt_boxes: blobs['gt_boxes'], \
+            self._gt_corners: blobs['gt_corners']}
+    rpn_loss_cls, rpn_loss_box, loss_cls, loss_corner, loss, _ = sess.run([self._losses["rpn_cross_entropy"],
                                                                         self._losses['rpn_loss_box'],
                                                                         self._losses['cross_entropy'],
-                                                                        self._losses['loss_box'],
+                                                                        self._losses['loss_corner'],
                                                                         self._losses['total_loss'],
                                                                         train_op],
                                                                        feed_dict=feed_dict)
-    return rpn_loss_cls, rpn_loss_box, loss_cls, loss_box, loss
+    return rpn_loss_cls, rpn_loss_box, loss_cls, loss_corner, loss
 
   def train_step_with_summary(self, sess, blobs, train_op):
     feed_dict = {self._top_lidar: blobs['top_lidar'], self._front_lidar: blobs['front_lidar'], self._image: blobs['image'], \
-            self._image_info: blobs['im_info'], self._top_lidar_info: blobs['top_lidar_info'], self._gt_boxes: blobs['gt_boxes']}
-    rpn_loss_cls, rpn_loss_box, loss_cls, loss_box, loss, summary, _ = sess.run([self._losses["rpn_cross_entropy"],
+            self._image_info: blobs['im_info'], self._top_lidar_info: blobs['top_lidar_info'], self._gt_boxes: blobs['gt_boxes'], \
+            self._gt_corners: blobs['gt_corners']}
+    rpn_loss_cls, rpn_loss_box, loss_cls, loss_corner, loss, summary, _ = sess.run([self._losses["rpn_cross_entropy"],
                                                                                  self._losses['rpn_loss_box'],
                                                                                  self._losses['cross_entropy'],
-                                                                                 self._losses['loss_box'],
+                                                                                 self._losses['loss_corner'],
                                                                                  self._losses['total_loss'],
                                                                                  self._summary_op,
                                                                                  train_op],
                                                                                 feed_dict=feed_dict)
-    return rpn_loss_cls, rpn_loss_box, loss_cls, loss_box, loss, summary
+    return rpn_loss_cls, rpn_loss_box, loss_cls, loss_corner, loss, summary
 
   def train_step_no_return(self, sess, blobs, train_op):
     feed_dict = {self._top_lidar: blobs['top_lidar'], self._front_lidar: blobs['front_lidar'], self._image: blobs['image'], \
-            self._image_info: blobs['im_info'], self._top_lidar_info: blobs['top_lidar_info'], self._gt_boxes: blobs['gt_boxes']}
+            self._image_info: blobs['im_info'], self._top_lidar_info: blobs['top_lidar_info'], self._gt_boxes: blobs['gt_boxes'], \
+            self._gt_corners: blobs['gt_corners']}
     sess.run([train_op], feed_dict=feed_dict)
 

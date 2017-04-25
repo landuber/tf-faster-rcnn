@@ -26,6 +26,13 @@ def lidar_to_top_coords(x,y,z=None):
 
     return xx, yy
 
+def top_box_to_lidar_box(b):
+    lidar_box = np.empty(b, dtype=np.float32)
+    for idx in range(b.shape[0]):
+        lidar_box[ix, :] = np.array(top_to_lidar_coord(b[idx,0], b[idx,1],b[idx,2]))
+    return lidar_box
+
+
 def lidar_box_to_top_box(b):
     x0 = b[0,0]
     y0 = b[0,1]
