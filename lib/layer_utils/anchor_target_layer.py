@@ -100,12 +100,11 @@ def anchor_target_layer(rpn_cls_score, gt_boxes, im_info, _feat_stride, all_anch
     labels[disable_inds] = -1
 
   
-  print('Inside anchor target')
-  print('ones')
-  print(np.sum(labels == 1))
-  print('ones and zeros')
-  print(np.sum(labels >= 0))
-  print(gt_boxes)
+  #print('Inside anchor target')
+  #print('ones')
+  #print(np.sum(labels == 1))
+  #print('ones and zeros')
+  #print(np.sum(labels >= 0))
   bbox_targets = np.zeros((len(inds_inside), 6), dtype=np.float32)
   # Compute the delta_x, delta_y, delta_z, delta_w, delta_h, delta_d
   bbox_targets = _compute_targets(anchors, gt_boxes[argmax_overlaps, :])
