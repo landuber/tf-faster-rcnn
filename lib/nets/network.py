@@ -270,7 +270,7 @@ class Network(object):
     with tf.variable_scope(name) as scope:
       rois, roi_scores, labels, corner_targets, corner_inside_weights, corner_outside_weights = tf.py_func(
         proposal_target_layer,
-        [rois, roi_scores, self.gt_boxes, self._gt_corners, self._num_classes],
+        [rois, roi_scores, self._gt_boxes, self._gt_corners, self._num_classes],
         [tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32])
 
       rois.set_shape([cfg.TRAIN.BATCH_SIZE, 7])
