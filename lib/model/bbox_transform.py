@@ -45,7 +45,7 @@ def corner_transform(rois_corners, gt_corners):
     targets = (gt_corners - rois_corners)
     targets = targets.reshape((-1, 24))
     targets = targets / diagonals
-    return targets.reshape((-1, 8, 3))
+    return targets
 
 
 
