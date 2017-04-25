@@ -12,7 +12,7 @@ import numpy.random as npr
 from model.config import cfg
 from model.bbox_transform import *
 from utils.cython_bbox import bbox_overlaps
-from model.boes3d import *
+from model.boxes3d import *
 
 np.set_printoptions(threshold='nan')
 
