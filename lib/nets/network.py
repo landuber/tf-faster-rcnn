@@ -314,8 +314,8 @@ class Network(object):
     smoothL1_sign = tf.stop_gradient(tf.to_float(tf.less(abs_in_box_diff, 1. / sigma_2)))
     in_loss_box = tf.pow(in_box_diff, 2) * (sigma_2 / 2.0) * smoothL1_sign \
                   + (abs_in_box_diff - (0.5 / sigma_2)) * (1.0 - smoothL1_sign)
-    #out_loss_box = bbox_outside_weights * in_loss_box
-    out_loss_box = in_loss_box
+    out_loss_box = bbox_outside_weights * in_loss_box
+    #out_loss_box = in_loss_box
     loss_box = tf.reduce_mean(tf.reduce_sum(
       out_loss_box,
       axis=dim
