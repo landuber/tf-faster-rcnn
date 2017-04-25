@@ -131,7 +131,7 @@ def _compute_corner_targets(rois_corners, gt_corners, labels):
   assert gt_corners.shape[1] == 8
   assert gt_corners.shape[2] == 3
 
-  targets = corners_transform(rois_corners, gt_corners)
+  targets = corner_transform(rois_corners, gt_corners)
   targets = targets.reshape(-1)
   return np.hstack(
     (labels[:, np.newaxis], targets)).astype(np.float32, copy=False)
