@@ -56,7 +56,7 @@ class vgg16(Network):
 
       self._score_summaries.update(self._predictions)
 
-      return self._predictions["rois"], self._predictions["cls_prob"], self._predictions["bbox_pred"]
+      return self._predictions["rois"], self._predictions["cls_prob"], self._predictions["corner_pred"]
 
 
   def build_bv(self):
