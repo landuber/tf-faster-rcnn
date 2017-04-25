@@ -429,8 +429,8 @@ class Network(object):
 
       rois = tf.slice(self._predictions['rois'], [0, 1], [-1, 6])
       val_summaries.append(self._add_bv_lidar_summary(self._top_lidar, rois, name="rois_bv"))
-      #val_summaries.append(self._add_fv_lidar_summary(self._front_lidar, rois, name="rois_fv"))
-      #val_summaries.append(self._add_img_summary(self._image, rois, name="rois_img"))
+      val_summaries.append(self._add_fv_lidar_summary(self._front_lidar, rois, name="rois_fv"))
+      val_summaries.append(self._add_img_summary(self._image, rois, name="rois_img"))
 
       #val_summaries.append(self._add_bv_lidar_summary(self._top_lidar, self._anchors, name="anchors"))
       #pre_rois = tf.slice(self._predictions["pre_rois"], [0, 1], [-1, 6])
