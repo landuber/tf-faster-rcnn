@@ -80,8 +80,8 @@ def img_projection_layer(rois, image_info):
       valid = np.where(
               (img_rois[0] >= 0) & 
               (img_rois[2] <= (image_info[0, 0] - 1)) & 
-              (imag_rois[1] >= 0) & 
-              (imag_rois[3] <= (image_info[0, 1] - 1)))[0]
+              (img_rois[1] >= 0) & 
+              (img_rois[3] <= (image_info[0, 1] - 1)))[0]
       return img_rois[valid, :] * image_info[0, 2]
 
 
