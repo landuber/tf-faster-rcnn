@@ -183,7 +183,8 @@ class vgg16(Network):
     def drop_global():
           with tf.variable_scope('drop_global'):
               index = tf.random_uniform(shape=[1], minval=0, maxval=2, dtype=tf.int32)[0]
-              return tf.gather_nd([bv_pool, fv_pool, im_pool], index)
+              #return tf.gather_nd([bv_pool, fv_pool, im_pool], index)
+          return bv_pool
 
     def drop_local():
           with tf.variable_sclope('drop_local'): 
