@@ -59,9 +59,9 @@ def proposal_layer(rpn_cls_prob, rpn_bbox_pred, lidar_info, image_info, cfg_key,
 
   keep = np.where(
           (image_proposals[:, 0] >= 0) & 
-          (image_proposals[:, 2] <= (image_info[0, 0] - 1)) & 
+          (image_proposals[:, 2] <= (image_info[0] - 1)) & 
           (image_proposals[:, 1] >= 0) & 
-          (image_proposals[:, 3] <= (image_info[0, 1] - 1)))[0]
+          (image_proposals[:, 3] <= (image_info[1] - 1)))[0]
 
   proposals = proposals[keep, :]
   scores = scores[keep]
