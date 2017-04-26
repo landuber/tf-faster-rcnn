@@ -77,8 +77,12 @@ def img_projection_layer(rois, image_info):
       for idx in range(rois.shape[0]):
           box = box_from_corners(rois[idx, :])
           img_rois[idx, :] = box_to_rgb_proj(box)
-      img_rois = np.where(img_rois[0] >=0 & img_rois[2] <= (image_info[0, 0] - 1) & imag_rois[1] >= 0 & imag_rois[3] <= (image_info[0, 1] - 1))
-      return img_rois * image_info[0, 2]
+      valid = np.where(
+              (img_rois[0] >= 0) & 
+              (img_rois[2] <= (image_info[0, 0] - 1)) & 
+              (imag_rois[1] >= 0) & 
+              (imag_rois[3] <= (image_info[0, 1] - 1)))[0]
+      return img_rois[valid, :] * image_info[0, 2]
 
 
 
