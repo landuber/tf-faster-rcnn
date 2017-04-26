@@ -202,13 +202,13 @@ class vgg16(Network):
     net = tf.cond(drop_g, drop_global, lambda: tf.add_n(views) / 3.)
 
     conv1_1 = slim.conv2d(net, 256, [3, 3], trainable=self.is_training,
-                weights_initializer=self._initializer, reuse=True,
+                weights_initializer=self._initializer,
                 padding='VALID', scope='fusion/conv1_1')
     conv1_2 = slim.conv2d(net, 256, [3, 3], trainable=self.is_training,
-                weights_initializer=self._initializer, reuse=True,
+                weights_initializer=self._initializer,
                 padding='VALID', scope='fusion/conv1_2')
     conv1_3 = slim.conv2d(net, 256, [3, 3], trainable=self.is_training,
-                weights_initializer=self._initializer, reuse=True,
+                weights_initializer=self._initializer,
                 padding='VALID', scope='fusion/conv1_3')
 
 
@@ -220,13 +220,13 @@ class vgg16(Network):
     net = tf.cond(drop_g, drop_global, lambda: tf.add_n(views) / 3.)
 
     conv2_1 = slim.conv2d(net, 256, [3, 3], trainable=self.is_training,
-                weights_initializer=self._initializer, reuse=True,
+                weights_initializer=self._initializer,
                 padding='VALID', scope='fusion/conv2_1')
     conv2_2 = slim.conv2d(net, 256, [3, 3], trainable=self.is_training,
-                weights_initializer=self._initializer, reuse=True,
+                weights_initializer=self._initializer,
                 padding='VALID', scope='fusion/conv2_2')
     conv2_3 = slim.conv2d(net, 256, [3, 3], trainable=self.is_training,
-                weights_initializer=self._initializer, reuse=True,
+                weights_initializer=self._initializer,
                 padding='VALID', scope='fusion/conv2_3')
     
 
@@ -235,13 +235,13 @@ class vgg16(Network):
     net = tf.cond(drop_g, drop_global, lambda: tf.add_n(views) / 3.)
 
     conv3_1 = slim.conv2d(net, 256, [3, 3], trainable=self.is_training,
-                weights_initializer=self._initializer, reuse=True,
+                weights_initializer=self._initializer,
                 padding='VALID', scope='fusion/conv3_1')
     conv3_2 = slim.conv2d(net, 256, [3, 3], trainable=self.is_training,
-                weights_initializer=self._initializer, reuse=True,
+                weights_initializer=self._initializer,
                 padding='VALID', scope='fusion/conv3_2')
     conv3_3 = slim.conv2d(net, 256, [3, 3], trainable=self.is_training,
-                weights_initializer=self._initializer, reuse=True,
+                weights_initializer=self._initializer,
                 padding='VALID', scope='fusion/conv3_3')
 
 
@@ -254,23 +254,23 @@ class vgg16(Network):
 
   def build_auxiliary_fusion(self, bv_pool, fv_pool, im_pool):
     conv1_1 = slim.conv2d(bv_pool, 256, [3, 3], trainable=self.is_training,
-                weights_initializer=self._initializer,
+                weights_initializer=self._initializer, reuse=True,
                 padding='VALID', scope='fusion/conv1_1')
 
     conv2_1 = slim.conv2d(conv1_1, 256, [3, 3], trainable=self.is_training,
-                weights_initializer=self._initializer,
+                weights_initializer=self._initializer, reuse=True,
                 padding='VALID', scope='fusion/conv2_1')
 
     conv3_1 = slim.conv2d(conv2_1, 256, [3, 3], trainable=self.is_training,
-                weights_initializer=self._initializer,
+                weights_initializer=self._initializer, reuse=True,
                 padding='VALID', scope='fusion/conv3_1')
 
     net_flat = slim.flatten(conv3_1, scope='flatten')
-    fc6 = slim.fully_connected(net_flat, 4096, scope='fc6')
+    fc6 = slim.fully_connected(net_flat, 4096, scope='fc6', reuse=True)
     fc6 = slim.dropout(fc6, scope='dropout6')
-    fc7 = slim.fully_connected(fc6, 4096, scope='fc7')
+    fc7 = slim.fully_connected(fc6, 4096, scope='fc7', reuse=True)
     fc7 = slim.dropout(fc7, scope='dropout7')
-    fc8 = slim.fully_connected(fc7, 4096, scope='fc8')
+    fc8 = slim.fully_connected(fc7, 4096, scope='fc8', reuse=True)
     fc8 = slim.dropout(fc8, scope='dropout8')
     cls_score = slim.fully_connected(fc8, self._num_classes, weights_initializer=self._initializer, trainable=True,
                           activation_fn=None, scope='aux1_cls_score')
@@ -283,24 +283,24 @@ class vgg16(Network):
     self._predictions["aux1_corner_pred"] = corner_pred
 
     conv1_2 = slim.conv2d(fv_pool, 256, [3, 3], trainable=self.is_training,
-                weights_initializer=self._initializer,
+                weights_initializer=self._initializer, reuse=True,
                 padding='VALID', scope='fusion/conv1_2')
 
     conv2_2 = slim.conv2d(conv1_2, 256, [3, 3], trainable=self.is_training,
-                weights_initializer=self._initializer,
+                weights_initializer=self._initializer, reuse=True,
                 padding='VALID', scope='fusion/conv2_2')
 
     conv3_2 = slim.conv2d(conv2_2, 256, [3, 3], trainable=self.is_training,
-                weights_initializer=self._initializer,
+                weights_initializer=self._initializer, reuse=True,
                 padding='VALID', scope='fusion/conv3_2')
 
 
     net_flat = slim.flatten(conv3_2, scope='flatten')
-    fc6 = slim.fully_connected(net_flat, 4096, scope='fc6')
+    fc6 = slim.fully_connected(net_flat, 4096, scope='fc6', reuse=True)
     fc6 = slim.dropout(fc6, scope='dropout6')
-    fc7 = slim.fully_connected(fc6, 4096, scope='fc7')
+    fc7 = slim.fully_connected(fc6, 4096, scope='fc7', reuse=True)
     fc7 = slim.dropout(fc7, scope='dropout7')
-    fc8 = slim.fully_connected(fc7, 4096, scope='fc8')
+    fc8 = slim.fully_connected(fc7, 4096, scope='fc8', reuse=True)
     fc8 = slim.dropout(fc8, scope='dropout8')
     cls_score = slim.fully_connected(fc8, self._num_classes, weights_initializer=self._initializer, trainable=True,
                           activation_fn=None, scope='aux2_cls_score')
@@ -313,23 +313,23 @@ class vgg16(Network):
     self._predictions["aux2_corner_pred"] = corner_pred
 
     conv1_3 = slim.conv2d(im_pool, 256, [3, 3], trainable=self.is_training,
-                weights_initializer=self._initializer,
+                weights_initializer=self._initializer, reuse=True,
                 padding='VALID', scope='fusion/conv1_3')
 
     conv2_3 = slim.conv2d(conv1_3, 256, [3, 3], trainable=self.is_training,
-                weights_initializer=self._initializer,
+                weights_initializer=self._initializer, reuse=True,
                 padding='VALID', scope='fusion/conv2_3')
 
     conv3_3 = slim.conv2d(conv2_3, 256, [3, 3], trainable=self.is_training,
-                weights_initializer=self._initializer,
+                weights_initializer=self._initializer, reuse=True,
                 padding='VALID', scope='fusion/conv3_3')
 
     net_flat = slim.flatten(conv3_3, scope='flatten')
-    fc6 = slim.fully_connected(net_flat, 4096, scope='fc6')
+    fc6 = slim.fully_connected(net_flat, 4096, scope='fc6', reuse=True)
     fc6 = slim.dropout(fc6, scope='dropout6')
-    fc7 = slim.fully_connected(fc6, 4096, scope='fc7')
+    fc7 = slim.fully_connected(fc6, 4096, scope='fc7', reuse=True)
     fc7 = slim.dropout(fc7, scope='dropout7')
-    fc8 = slim.fully_connected(fc7, 4096, scope='fc8')
+    fc8 = slim.fully_connected(fc7, 4096, scope='fc8', reuse=True)
     fc8 = slim.dropout(fc8, scope='dropout8')
     cls_score = slim.fully_connected(fc8, self._num_classes, weights_initializer=self._initializer, trainable=True,
                           activation_fn=None, scope='aux3_cls_score')
@@ -351,14 +351,14 @@ class vgg16(Network):
   def build_rcnn(self, net):
       # rcnn
       net_flat = slim.flatten(net, scope='flatten')
-      fc6 = slim.fully_connected(net_flat, 4096, scope='fc6', reuse=True)
+      fc6 = slim.fully_connected(net_flat, 4096, scope='fc6')
       if self.is_training:
         fc6 = slim.dropout(fc6, scope='dropout6')
-      fc7 = slim.fully_connected(fc6, 4096, scope='fc7', reuse=True)
+      fc7 = slim.fully_connected(fc6, 4096, scope='fc7')
       if self.is_training:
         fc7 = slim.dropout(fc7, scope='dropout7')
       # Adding fc8 for the lidar
-      fc8 = slim.fully_connected(fc7, 4096, scope='fc8', reuse=True)
+      fc8 = slim.fully_connected(fc7, 4096, scope='fc8')
       if self.is_training:
         fc8 = slim.dropout(fc8, scope='dropout8')
       cls_score = slim.fully_connected(fc8, self._num_classes, weights_initializer=self._initializer, trainable=self.is_training,
