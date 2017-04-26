@@ -34,7 +34,6 @@ class vgg16(Network):
 
   def build_network(self, sess, is_training=True):
     self.is_training = is_training
-    self.sess = sess
     with tf.variable_scope('vgg_16', 'vgg_16',
                            regularizer=tf.contrib.layers.l2_regularizer(cfg.TRAIN.WEIGHT_DECAY)):
       # select initializers
@@ -183,21 +182,21 @@ class vgg16(Network):
     def drop_global():
           with tf.variable_scope('drop_global'):
               index = tf.random_uniform(shape=[1], minval=0, maxval=2, dtype=tf.int32)[0]
-              #return tf.gather_nd([bv_pool, fv_pool, im_pool], index)
-          return bv_pool
+              view = views[index]
+          return view
 
     def drop_local():
           with tf.variable_sclope('drop_local'): 
               mask = [self.coin_flip(), self.coin_flip(), self.coin_flip()] 
               indices = tf.boolean_mask([0, 1, 2], mask)
-              views = tf.add_n(tf.gather([bv_pool, fv_pool, im_pool], indices))
+              views = tf.add_n(tf.gather(views, indices))
           return views
 
     drop_g = self.coin_flip()
     drop_l  = tf.logical_not(drop_g)
 
 
-    net = tf.cond(drop_g, lambda: drop_global, lambda: tf.add_n(views) / 3.)
+    net = tf.cond(drop_g, drop_global, tf.add_n(views) / 3.)
 
     conv1_1 = slim.conv2d(net, 256, [3, 3], trainable=self.is_training,
                 weights_initializer=self._initializer, reuse=True,
@@ -215,7 +214,7 @@ class vgg16(Network):
 
     views = [conv1_1, conv1_2, conv1_3]
 
-    net = tf.cond(drop_l, lambda: drop_local, lambda: tf.add_n(views) / 3.0)
+    net = tf.cond(drop_g, drop_global, tf.add_n(views) / 3.)
 
     conv2_1 = slim.conv2d(net, 256, [3, 3], trainable=self.is_training,
                 weights_initializer=self._initializer, reuse=True,
@@ -230,7 +229,7 @@ class vgg16(Network):
 
     views = [conv2_1, conv2_2, conv2_3]
 
-    net = tf.cond(drop_l, lambda: drop_local, lambda: tf.add_n(views) / 3.0)
+    net = tf.cond(drop_g, drop_global, tf.add_n(views) / 3.)
 
     conv3_1 = slim.conv2d(net, 256, [3, 3], trainable=self.is_training,
                 weights_initializer=self._initializer, reuse=True,
