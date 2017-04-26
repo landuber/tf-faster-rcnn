@@ -194,7 +194,7 @@ class vgg16(Network):
     drop_global = self.coin_flip()
     drop_local  = tf.logical_not(drop_global)
 
-    views = [bv_pool, fv_pool, im_poo]
+    views = [bv_pool, fv_pool, im_pool]
 
     net = tf.cond(drop_global, lambda: drop_global(views), lambda: tf.add_n(views) / 3.)
 
