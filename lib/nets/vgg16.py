@@ -189,8 +189,8 @@ class vgg16(Network):
           with tf.variable_scope('drop_local'): 
               mask = [self.coin_flip(), self.coin_flip(), self.coin_flip()] 
               indices = tf.boolean_mask([0, 1, 2], mask)
-              views = tf.add_n(tf.gather(views, indices))
-          return views
+              tensors = tf.add_n(tf.gather(views, indices))
+          return tensors
 
     drop_g = self.coin_flip()
     drop_l  = tf.logical_not(drop_g)
