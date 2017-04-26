@@ -187,11 +187,10 @@ class vgg16(Network):
 
     def drop_local():
           with tf.variable_scope('drop_local'): 
-              tensors = []
-              tf.cond(self.coin_flip(), lambda: views[0], lambda: tf.no_op())
-              tf.cond(self.coin_flip(), lambda: views[1], lambda: tf.no_op())
-              tf.cond(self.coin_flip(), lambda: views[2], lambda: tf.no_op())
-              tensors = tf.add_n(tensors)
+              t1 = tf.cond(self.coin_flip(), lambda: views[0], lambda: tf.zeros_like(views[0]))
+              t2 = tf.cond(self.coin_flip(), lambda: views[1], lambda: tf.zeros_like(views[0]))
+              t3 = tf.cond(self.coin_flip(), lambda: views[2], lambda: tf.zeros_like(views[0]))
+              tensors = tf.add_n([t1, t2, t3])
           return tensors
 
     drop_g = self.coin_flip()
