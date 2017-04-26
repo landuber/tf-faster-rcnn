@@ -244,7 +244,7 @@ class vgg16(Network):
 
     views = [conv3_1, conv3_2, conv3_3]
 
-    net = tf.cond(drop_l, lambda: drop_local(views), lambda: tf.add_n(views) / 3.0)
+    net = tf.cond(drop_l, drop_local, lambda: tf.add_n(views) / 3.0)
 
     return net
 
