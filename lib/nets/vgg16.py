@@ -34,6 +34,7 @@ class vgg16(Network):
 
   def build_network(self, sess, is_training=True):
     self.is_training = is_training
+    self.sess = sess
     with tf.variable_scope('vgg_16', 'vgg_16',
                            regularizer=tf.contrib.layers.l2_regularizer(cfg.TRAIN.WEIGHT_DECAY)):
       # select initializers
@@ -182,7 +183,8 @@ class vgg16(Network):
     def drop_global():
           with tf.variable_scope('drop_global'):
               index = tf.random_uniform(shape=[1], minval=0, maxval=2, dtype=tf.int32)[0]
-              view = views[index]
+              print(index)
+              view = tf.gather_nd(views, index)
           return view
 
     def drop_local():
