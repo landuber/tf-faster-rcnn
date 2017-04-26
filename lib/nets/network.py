@@ -161,7 +161,7 @@ class Network(object):
   def _proposal_layer(self, rpn_cls_prob, rpn_bbox_pred, name):
     with tf.variable_scope(name) as scope:
       rois, rpn_scores = tf.py_func(proposal_layer,
-                                    [rpn_cls_prob, rpn_bbox_pred, self._top_lidar_info, self._mode,
+                                    [rpn_cls_prob, rpn_bbox_pred, self._top_lidar_info, self._image_info, self._mode,
                                      self._feat_stride, self._anchors, self._anchor_scales],
                                     [tf.float32, tf.float32])
       rois.set_shape([None, 7])

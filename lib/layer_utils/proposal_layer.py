@@ -10,9 +10,10 @@ import numpy as np
 from model.config import cfg
 from model.bbox_transform import bbox_transform_inv, clip_boxes
 from model.nms_wrapper import nms
+from model.boxes3d import *
 
 
-def proposal_layer(rpn_cls_prob, rpn_bbox_pred, im_info, cfg_key, _feat_stride, anchors, anchor_scales):
+def proposal_layer(rpn_cls_prob, rpn_bbox_pred, lidar_info, image_info, cfg_key, _feat_stride, anchors, anchor_scales):
   """A simplified version compared to fast/er RCNN
      For details please see the technical report
   """
@@ -24,13 +25,14 @@ def proposal_layer(rpn_cls_prob, rpn_bbox_pred, im_info, cfg_key, _feat_stride, 
 
   scales = np.array(anchor_scales)
   num_anchors = scales.shape[0] * 3
-  im_info = im_info[0]
+  lidar_info = lidar_info[0]
+  image_info = image_info[0]
   # Get the scores and bounding boxes
   scores = rpn_cls_prob[:, :, :, num_anchors:]
   rpn_bbox_pred = rpn_bbox_pred.reshape((-1, 6))
   scores = scores.reshape((-1, 1))
   proposals = bbox_transform_inv(anchors, rpn_bbox_pred)
-  proposals = clip_boxes(proposals, im_info)
+  proposals = clip_boxes(proposals, lidar_info)
 
   # Pick the top region proposals
   order = scores.ravel().argsort()[::-1]
@@ -46,6 +48,21 @@ def proposal_layer(rpn_cls_prob, rpn_bbox_pred, im_info, cfg_key, _feat_stride, 
   # Pick th top region proposals after NMS
   if post_nms_topN > 0:
     keep = keep[:post_nms_topN]
+  proposals = proposals[keep, :]
+  scores = scores[keep]
+
+  # Preserve only ones that are in the projected image
+  image_proposals = np.empty_like(proposals, dtype=np.float32)
+  for idx in range(proposals.shape[0]):
+      box = box_from_corners(proposals[idx, :])
+      image_proposals[idx, :] = box_to_rgb_proj(box)
+
+  keep = np.where(
+          (image_proposals[0] >= 0) & 
+          (image_proposals[2] <= (image_info[0, 0] - 1)) & 
+          (image_proposals[1] >= 0) & 
+          (image_proposals[3] <= (image_info[0, 1] - 1)))[0]
+
   proposals = proposals[keep, :]
   scores = scores[keep]
 
