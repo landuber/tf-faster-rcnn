@@ -102,6 +102,13 @@ def box_from_corners(corners):
 def corners_from_box(box):
     return np.hstack((box.min(axis=0), box.max(axis=0)))
 
+def top_corners_to_lidar_box(b):
+    lidar_box = np.empty((b.shape[0], 8, 3), dtype=np.float32)
+    for idx in range(b.shape[0]):
+        lidar_box[idx, :] = box_from_corners(np.hstack((top_to_lidar_coord(b[idx,0], b[idx,1], b[idx,2]), 
+                                             top_to_lidar_coord(b[idx,3], b[idx,4], b[idx,5]))))
+    return lidar_box
+
 def lidar_box_to_top_box(b):
     x0 = b[0,0]
     y0 = b[0,1]
@@ -351,7 +358,11 @@ def _draw_on_image(img, objs, class_sets_dict, side=0):
     font = cv2.FONT_HERSHEY_SIMPLEX
     for ind, obj in enumerate(objs):
         if obj['box'] is None: continue
-        box = lidar_box_to_top_box(obj['box']).astype(int)
+        box = lidar_box_to_top_box(obj['box'])
+        #corner = corners_from_box(box)
+        #corner = corner[np.newaxis, :]
+        #lidar_box = top_corners_to_lidar_box(corner)
+        #box = lidar_box_to_top_box(lidar_box[0, :]).astype(int)
         cls_id = class_sets_dict[obj['class']]
         rect_color = colors[cls_id % len(colors)]
         text_color = (255, 0, 255)
@@ -594,7 +605,7 @@ if __name__ == '__main__':
                 if _draw:
                     top = _draw_on_image(top, objs, class_sets_dict, side=1)
                 cv2.imwrite(os.path.join(_dest_img_dir, stem + '_top.jpg'), top)
-            if 1:
+            if 0:
                 lidar_file = os.path.join(_dest_lidar_dir, stem + '.bin')
                 lidar = np.fromfile(lidar_file, dtype=np.float32)
                 lidar = lidar.reshape((-1, 4))

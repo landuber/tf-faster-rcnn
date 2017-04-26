@@ -52,7 +52,7 @@ class vgg16(Network):
       fv_pool = self._crop_pool_fv_layer(net_fv, rois, "fv/pool5")
       img_pool = self._crop_pool_img_layer(net_img, rois, "img/pool5")
 
-      self.build_rcnn(tf.add_n([bv_pool, fv_pool, img_pool]) / 3.0)
+      self.build_rcnn(self.build_fusion(bv_pool, fv_pool, img_pool))
 
       self._score_summaries.update(self._predictions)
 
@@ -175,10 +175,132 @@ class vgg16(Network):
       return pre_roi_pooling_net
 
 
-  def build_rcnn(self, pool5):
+  def build_fusion(self, bv_pool, fv_pool, im_pool):
+
+
+    def drop_global(views):
+          with tf.variable_scope('drop_global'):
+              index = tf.random_uniform(shape=[1], minval=0, maxval=2, dtype=tf.int32)[0]
+              view = views[index]
+          return view
+
+    def drop_local(views):
+          with tf.variable_sclope('drop_local'): 
+              mask = [self.flip_coin(), self.flip_coin(), self.flip_coin()] 
+              indices = tf.boolean_mask([0, 1, 2], mask)
+              views = tf.add_n(tf.gather(views, indices))
+          return views
+
+    drop_global = self.flip_coin()
+    drop_local  = tf.logical_not(drop_global)
+
+    views = [bv_pool, fv_pool, im_poo]
+
+    net = tf.cond(drop_global, lambda: drop_global(views), lambda: tf.add_n(views) / 3.)
+
+    conv1_1 = slim.conv2d(net, 256, [3, 3], trainable=self.is_training,
+                weights_initializer=self._initializer, reuse=True,
+                padding='VALID', scope='fusion/conv1_1')
+    conv1_2 = slim.conv2d(net, 256, [3, 3], trainable=self.is_training,
+                weights_initializer=self._initializer, reuse=True,
+                padding='VALID', scope='fusion/conv1_2')
+    conv1_3 = slim.conv2d(net, 256, [3, 3], trainable=self.is_training,
+                weights_initializer=self._initializer, reuse=True,
+                padding='VALID', scope='fusion/conv1_3')
+
+
+
+
+
+    views = [conv1_1, conv1_2, conv1_3]
+
+    net = tf.cond(drop_local, lambda: drop_local(views), lambda: tf.add_n(views) / 3.0)
+
+    conv2_1 = slim.conv2d(net, 256, [3, 3], trainable=self.is_training,
+                weights_initializer=self._initializer, reuse=True,
+                padding='VALID', scope='fusion/conv2_1')
+    conv2_2 = slim.conv2d(net, 256, [3, 3], trainable=self.is_training,
+                weights_initializer=self._initializer, reuse=True,
+                padding='VALID', scope='fusion/conv2_2')
+    conv2_3 = slim.conv2d(net, 256, [3, 3], trainable=self.is_training,
+                weights_initializer=self._initializer, reuse=True,
+                padding='VALID', scope='fusion/conv2_3')
+    
+
+    views = [conv2_1, conv2_2, conv2_3]
+
+    net = tf.cond(drop_local, lambda: drop_local(views), lambda: tf.add_n(views) / 3.0)
+
+    conv3_1 = slim.conv2d(net, 256, [3, 3], trainable=self.is_training,
+                weights_initializer=self._initializer, reuse=True,
+                padding='VALID', scope='fusion/conv3_1')
+    conv3_2 = slim.conv2d(net, 256, [3, 3], trainable=self.is_training,
+                weights_initializer=self._initializer, reuse=True,
+                padding='VALID', scope='fusion/conv3_2')
+    conv3_3 = slim.conv2d(net, 256, [3, 3], trainable=self.is_training,
+                weights_initializer=self._initializer, reuse=True,
+                padding='VALID', scope='fusion/conv3_3')
+
+
+    views = [conv3_1, conv3_2, conv3_3]
+
+    net = tf.cond(drop_local, lambda: drop_local(views), lambda: tf.add_n(views) / 3.0)
+
+    return net
+
+
+  def build_auxilary_fusion(self, bv_pool, fv_pool, im_pool):
+    conv1_1 = slim.conv2d(bv_pool, 256, [3, 3], trainable=self.is_training,
+                weights_initializer=self._initializer,
+                padding='VALID', scope='fusion/conv1_1')
+
+    conv2_1 = slim.conv2d(conv1_1, 256, [3, 3], trainable=self.is_training,
+                weights_initializer=self._initializer,
+                padding='VALID', scope='fusion/conv2_1')
+
+    conv3_1 = slim.conv2d(conv2_1, 256, [3, 3], trainable=self.is_training,
+                weights_initializer=self._initializer,
+                padding='VALID', scope='fusion/conv3_1')
+
+    conv1_2 = slim.conv2d(fv_pool, 256, [3, 3], trainable=self.is_training,
+                weights_initializer=self._initializer,
+                padding='VALID', scope='fusion/conv1_2')
+
+    conv2_2 = slim.conv2d(conv1_2, 256, [3, 3], trainable=self.is_training,
+                weights_initializer=self._initializer,
+                padding='VALID', scope='fusion/conv2_2')
+
+    conv3_2 = slim.conv2d(conv2_2, 256, [3, 3], trainable=self.is_training,
+                weights_initializer=self._initializer,
+                padding='VALID', scope='fusion/conv3_2')
+
+    conv1_3 = slim.conv2d(im_pool, 256, [3, 3], trainable=self.is_training,
+                weights_initializer=self._initializer,
+                padding='VALID', scope='fusion/conv1_3')
+
+    conv2_3 = slim.conv2d(conv1_3, 256, [3, 3], trainable=self.is_training,
+                weights_initializer=self._initializer,
+                padding='VALID', scope='fusion/conv2_3')
+
+    conv3_3 = slim.conv2d(conv2_3, 256, [3, 3], trainable=self.is_training,
+                weights_initializer=self._initializer,
+                padding='VALID', scope='fusion/conv3_3')
+
+    net = tf.add_n([conv3_1, conv3_2, conv3_3]) / 3.0
+
+    return net
+
+
+  def coin_flip(self, prob=.5):
+      with tf.variable_scope('coin_flip'):
+          coin = tf.random_uniform([1])[0] > prob
+      return coin
+
+
+  def build_rcnn(self, net):
       # rcnn
-      pool5_flat = slim.flatten(pool5, scope='flatten')
-      fc6 = slim.fully_connected(pool5_flat, 4096, scope='fc6')
+      net_flat = slim.flatten(net, scope='flatten')
+      fc6 = slim.fully_connected(net_flat, 4096, scope='fc6')
       if self.is_training:
         fc6 = slim.dropout(fc6, scope='dropout6')
       fc7 = slim.fully_connected(fc6, 4096, scope='fc7')
