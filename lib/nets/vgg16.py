@@ -182,7 +182,7 @@ class vgg16(Network):
     def drop_global():
           with tf.variable_scope('drop_global'):
               index = tf.random_uniform(shape=[1], minval=0, maxval=2, dtype=tf.int32)[0]
-              view = views[index]
+              view = tf.gather(views, index)
           return view
 
     def drop_local():
