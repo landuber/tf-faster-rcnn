@@ -192,11 +192,11 @@ class vgg16(Network):
               views = tf.add_n(tf.gather(views, indices))
           return views
 
-    drop_global = self.coin_flip()
-    drop_local  = tf.logical_not(drop_global)
+    drop_g = self.coin_flip()
+    drop_l  = tf.logical_not(drop_global)
 
 
-    net = tf.cond(drop_global, lambda: drop_global, lambda: tf.add_n(views) / 3.)
+    net = tf.cond(drop_g, lambda: drop_global, lambda: tf.add_n(views) / 3.)
 
     conv1_1 = slim.conv2d(net, 256, [3, 3], trainable=self.is_training,
                 weights_initializer=self._initializer, reuse=True,
@@ -214,7 +214,7 @@ class vgg16(Network):
 
     views = [conv1_1, conv1_2, conv1_3]
 
-    net = tf.cond(drop_local, lambda: drop_local, lambda: tf.add_n(views) / 3.0)
+    net = tf.cond(drop_l, lambda: drop_local, lambda: tf.add_n(views) / 3.0)
 
     conv2_1 = slim.conv2d(net, 256, [3, 3], trainable=self.is_training,
                 weights_initializer=self._initializer, reuse=True,
@@ -229,7 +229,7 @@ class vgg16(Network):
 
     views = [conv2_1, conv2_2, conv2_3]
 
-    net = tf.cond(drop_local, lambda: drop_local, lambda: tf.add_n(views) / 3.0)
+    net = tf.cond(drop_l, lambda: drop_local, lambda: tf.add_n(views) / 3.0)
 
     conv3_1 = slim.conv2d(net, 256, [3, 3], trainable=self.is_training,
                 weights_initializer=self._initializer, reuse=True,
@@ -244,7 +244,7 @@ class vgg16(Network):
 
     views = [conv3_1, conv3_2, conv3_3]
 
-    net = tf.cond(drop_local, lambda: drop_local(views), lambda: tf.add_n(views) / 3.0)
+    net = tf.cond(drop_l, lambda: drop_local(views), lambda: tf.add_n(views) / 3.0)
 
     return net
 
