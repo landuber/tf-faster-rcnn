@@ -52,7 +52,7 @@ def proposal_layer(rpn_cls_prob, rpn_bbox_pred, lidar_info, image_info, cfg_key,
   scores = scores[keep]
 
   # Preserve only ones that are in the projected image
-  image_proposals = np.empty_like(proposals, dtype=np.float32)
+  image_proposals = np.empty((proposals.shape[0], 4), dtype=np.float32)
   for idx in range(proposals.shape[0]):
       box = box_from_corners(proposals[idx, :])
       image_proposals[idx, :] = box_to_rgb_proj(box)
