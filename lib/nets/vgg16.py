@@ -183,15 +183,14 @@ class vgg16(Network):
     def drop_global():
           with tf.variable_scope('drop_global'):
               index = tf.random_uniform(shape=[1], minval=0, maxval=2, dtype=tf.int32)[0]
-              print(index)
-              view = tf.gather_nd(views, index)
+              view = tf.gather_nd([bv_pool, fv_pool, im_pool], index)
           return view
 
     def drop_local():
           with tf.variable_sclope('drop_local'): 
               mask = [self.coin_flip(), self.coin_flip(), self.coin_flip()] 
               indices = tf.boolean_mask([0, 1, 2], mask)
-              views = tf.add_n(tf.gather(views, indices))
+              views = tf.add_n(tf.gather([bv_pool, fv_pool, im_pool], indices))
           return views
 
     drop_g = self.coin_flip()
