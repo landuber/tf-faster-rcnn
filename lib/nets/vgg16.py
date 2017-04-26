@@ -193,7 +193,7 @@ class vgg16(Network):
           return views
 
     drop_g = self.coin_flip()
-    drop_l  = tf.logical_not(drop_global)
+    drop_l  = tf.logical_not(drop_g)
 
 
     net = tf.cond(drop_g, lambda: drop_global, lambda: tf.add_n(views) / 3.)
