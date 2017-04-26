@@ -54,7 +54,7 @@ class vgg16(Network):
 
       self.build_rcnn(self.build_fusion(bv_pool, fv_pool, img_pool))
       if self.is_training:
-          self.build_auxiliary_fusion(bv_pool, fv_pool, im_pool)
+          self.build_auxiliary_fusion(bv_pool, fv_pool, img_pool)
 
       self._score_summaries.update(self._predictions)
 
