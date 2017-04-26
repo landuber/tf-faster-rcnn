@@ -50,9 +50,11 @@ class vgg16(Network):
 
       bv_pool = self._crop_pool_bv_layer(net_bv, rois, "bv/pool5")
       fv_pool = self._crop_pool_fv_layer(net_fv, rois, "fv/pool5")
-      img_pool = self._crop_pool_img_layer(net_img, rois, "img/pool5")
+      img_pool = self._crop_pool_img_layer(net_img, rois, "im/pool5")
 
       self.build_rcnn(self.build_fusion(bv_pool, fv_pool, img_pool))
+      if self.is_training:
+          self.build_auxiliary_fusion(bv_pool, fv_pool, im_pool)
 
       self._score_summaries.update(self._predictions)
 
@@ -188,8 +190,8 @@ class vgg16(Network):
     def drop_local():
           with tf.variable_scope('drop_local'): 
               t1 = tf.cond(self.coin_flip(), lambda: views[0], lambda: tf.zeros_like(views[0]))
-              t2 = tf.cond(self.coin_flip(), lambda: views[1], lambda: tf.zeros_like(views[0]))
-              t3 = tf.cond(self.coin_flip(), lambda: views[2], lambda: tf.zeros_like(views[0]))
+              t2 = tf.cond(self.coin_flip(), lambda: views[1], lambda: tf.zeros_like(views[1]))
+              t3 = tf.cond(self.coin_flip(), lambda: views[2], lambda: tf.zeros_like(views[2]))
               tensors = tf.add_n([t1, t2, t3])
           return tensors
 
@@ -250,7 +252,7 @@ class vgg16(Network):
     return net
 
 
-  def build_auxilary_fusion(self, bv_pool, fv_pool, im_pool):
+  def build_auxiliary_fusion(self, bv_pool, fv_pool, im_pool):
     conv1_1 = slim.conv2d(bv_pool, 256, [3, 3], trainable=self.is_training,
                 weights_initializer=self._initializer,
                 padding='VALID', scope='fusion/conv1_1')
@@ -262,6 +264,23 @@ class vgg16(Network):
     conv3_1 = slim.conv2d(conv2_1, 256, [3, 3], trainable=self.is_training,
                 weights_initializer=self._initializer,
                 padding='VALID', scope='fusion/conv3_1')
+
+    net_flat = slim.flatten(conv3_1, scope='flatten')
+    fc6 = slim.fully_connected(net_flat, 4096, scope='fc6')
+    fc6 = slim.dropout(fc6, scope='dropout6')
+    fc7 = slim.fully_connected(fc6, 4096, scope='fc7')
+    fc7 = slim.dropout(fc7, scope='dropout7')
+    fc8 = slim.fully_connected(fc7, 4096, scope='fc8')
+    fc8 = slim.dropout(fc8, scope='dropout8')
+    cls_score = slim.fully_connected(fc8, self._num_classes, weights_initializer=self._initializer, trainable=True,
+                          activation_fn=None, scope='aux1_cls_score')
+    cls_prob = self._softmax_layer(cls_score, "aux1_cls_prob")
+    corner_pred = slim.fully_connected(fc8, self._num_classes * 24, weights_initializer=self._initializer_bbox,
+                          trainable=True,
+                          activation_fn=None, scope='aux1_corner_pred')
+    self._predictions["aux1_cls_score"] = cls_score
+    self._predictions["aux1_cls_prob"] = cls_prob
+    self._predictions["aux1_corner_pred"] = corner_pred
 
     conv1_2 = slim.conv2d(fv_pool, 256, [3, 3], trainable=self.is_training,
                 weights_initializer=self._initializer,
@@ -275,6 +294,24 @@ class vgg16(Network):
                 weights_initializer=self._initializer,
                 padding='VALID', scope='fusion/conv3_2')
 
+
+    net_flat = slim.flatten(conv3_2, scope='flatten')
+    fc6 = slim.fully_connected(net_flat, 4096, scope='fc6')
+    fc6 = slim.dropout(fc6, scope='dropout6')
+    fc7 = slim.fully_connected(fc6, 4096, scope='fc7')
+    fc7 = slim.dropout(fc7, scope='dropout7')
+    fc8 = slim.fully_connected(fc7, 4096, scope='fc8')
+    fc8 = slim.dropout(fc8, scope='dropout8')
+    cls_score = slim.fully_connected(fc8, self._num_classes, weights_initializer=self._initializer, trainable=True,
+                          activation_fn=None, scope='aux2_cls_score')
+    cls_prob = self._softmax_layer(cls_score, "aux2_cls_prob")
+    corner_pred = slim.fully_connected(fc8, self._num_classes * 24, weights_initializer=self._initializer_bbox,
+                          trainable=True,
+                          activation_fn=None, scope='aux2_corner_pred')
+    self._predictions["aux2_cls_score"] = cls_score
+    self._predictions["aux2_cls_prob"] = cls_prob
+    self._predictions["aux2_corner_pred"] = corner_pred
+
     conv1_3 = slim.conv2d(im_pool, 256, [3, 3], trainable=self.is_training,
                 weights_initializer=self._initializer,
                 padding='VALID', scope='fusion/conv1_3')
@@ -287,9 +324,22 @@ class vgg16(Network):
                 weights_initializer=self._initializer,
                 padding='VALID', scope='fusion/conv3_3')
 
-    net = tf.add_n([conv3_1, conv3_2, conv3_3]) / 3.0
-
-    return net
+    net_flat = slim.flatten(conv3_3, scope='flatten')
+    fc6 = slim.fully_connected(net_flat, 4096, scope='fc6')
+    fc6 = slim.dropout(fc6, scope='dropout6')
+    fc7 = slim.fully_connected(fc6, 4096, scope='fc7')
+    fc7 = slim.dropout(fc7, scope='dropout7')
+    fc8 = slim.fully_connected(fc7, 4096, scope='fc8')
+    fc8 = slim.dropout(fc8, scope='dropout8')
+    cls_score = slim.fully_connected(fc8, self._num_classes, weights_initializer=self._initializer, trainable=True,
+                          activation_fn=None, scope='aux3_cls_score')
+    cls_prob = self._softmax_layer(cls_score, "aux3_cls_prob")
+    corner_pred = slim.fully_connected(fc8, self._num_classes * 24, weights_initializer=self._initializer_bbox,
+                          trainable=True,
+                          activation_fn=None, scope='aux3_corner_pred')
+    self._predictions["aux3_cls_score"] = cls_score
+    self._predictions["aux3_cls_prob"] = cls_prob
+    self._predictions["aux3_corner_pred"] = corner_pred
 
 
   def coin_flip(self, prob=.5):
@@ -301,20 +351,20 @@ class vgg16(Network):
   def build_rcnn(self, net):
       # rcnn
       net_flat = slim.flatten(net, scope='flatten')
-      fc6 = slim.fully_connected(net_flat, 4096, scope='fc6')
+      fc6 = slim.fully_connected(net_flat, 4096, scope='fc6', reuse=True)
       if self.is_training:
         fc6 = slim.dropout(fc6, scope='dropout6')
-      fc7 = slim.fully_connected(fc6, 4096, scope='fc7')
+      fc7 = slim.fully_connected(fc6, 4096, scope='fc7', reuse=True)
       if self.is_training:
         fc7 = slim.dropout(fc7, scope='dropout7')
       # Adding fc8 for the lidar
-      fc8 = slim.fully_connected(fc7, 4096, scope='fc8')
+      fc8 = slim.fully_connected(fc7, 4096, scope='fc8', reuse=True)
       if self.is_training:
         fc8 = slim.dropout(fc8, scope='dropout8')
       cls_score = slim.fully_connected(fc8, self._num_classes, weights_initializer=self._initializer, trainable=self.is_training,
                               activation_fn=None, scope='cls_score')
       cls_prob = self._softmax_layer(cls_score, "cls_prob")
-      corner_pred = slim.fully_connected(fc7, self._num_classes * 24, weights_initializer=self._initializer_bbox,
+      corner_pred = slim.fully_connected(fc8, self._num_classes * 24, weights_initializer=self._initializer_bbox,
                               trainable=self.is_training,
                               activation_fn=None, scope='corner_pred')
       self._predictions["cls_score"] = cls_score

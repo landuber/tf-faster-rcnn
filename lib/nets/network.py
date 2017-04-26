@@ -350,7 +350,27 @@ class Network(object):
         tf.nn.sparse_softmax_cross_entropy_with_logits(
           logits=tf.reshape(cls_score, [-1, self._num_classes]), labels=label))
 
-      # RCNN, bbox loss
+      # Aux1 class loss  
+      aux1_cls_score = self._predictions["aux1_cls_score"]
+      aux1_cross_entropy = tf.reduce_mean(
+        tf.nn.sparse_softmax_cross_entropy_with_logits(
+          logits=tf.reshape(aux1_cls_score, [-1, self._num_classes]), labels=label))
+      
+      # Aux2 class loss  
+      aux2_cls_score = self._predictions["aux2_cls_score"]
+      aux2_cross_entropy = tf.reduce_mean(
+        tf.nn.sparse_softmax_cross_entropy_with_logits(
+          logits=tf.reshape(aux2_cls_score, [-1, self._num_classes]), labels=label))
+
+
+      # Aux3 class loss  
+      aux3_cls_score = self._predictions["aux3_cls_score"]
+      aux3_cross_entropy = tf.reduce_mean(
+        tf.nn.sparse_softmax_cross_entropy_with_logits(
+          logits=tf.reshape(aux3_cls_score, [-1, self._num_classes]), labels=label))
+
+
+      # RCNN, corner loss
       corner_pred = self._predictions['corner_pred']
       corner_targets = self._proposal_targets['corner_targets']
       corner_inside_weights = self._proposal_targets['corner_inside_weights']
@@ -358,8 +378,22 @@ class Network(object):
 
       loss_corner = self._smooth_l1_loss(corner_pred, corner_targets, corner_inside_weights, corner_outside_weights)
 
-      self._losses['cross_entropy'] = cross_entropy
-      self._losses['loss_corner'] = loss_corner
+
+      # Aux1 corner loss
+      aux1_corner_pred = self._predictions['aux1_corner_pred']
+      aux1_loss_corner = self._smooth_l1_loss(aux1_corner_pred, corner_targets, corner_inside_weights, corner_outside_weights)
+
+
+      # Aux2 corner loss
+      aux2_corner_pred = self._predictions['aux2_corner_pred']
+      aux2_loss_corner = self._smooth_l1_loss(aux2_corner_pred, corner_targets, corner_inside_weights, corner_outside_weights)
+
+      # Aux3 corner loss
+      aux3_corner_pred = self._predictions['aux3_corner_pred']
+      aux3_loss_corner = self._smooth_l1_loss(aux3_corner_pred, corner_targets, corner_inside_weights, corner_outside_weights)
+
+      self._losses['cross_entropy'] = tf.reduce_mean([cross_entropy, aux1_cross_entropy, aux2_cross_entropy, aux3_cross_entropy])
+      self._losses['loss_corner'] = tf.reduce_mean([loss_corner, aux1_loss_corner, aux2_loss_corner, aux3_loss_corner])
       self._losses['rpn_cross_entropy'] = rpn_cross_entropy
       self._losses['rpn_loss_box'] = rpn_loss_box
 
