@@ -34,6 +34,20 @@ def proposal_layer(rpn_cls_prob, rpn_bbox_pred, lidar_info, image_info, cfg_key,
   proposals = bbox_transform_inv(anchors, rpn_bbox_pred)
   proposals = clip_boxes(proposals, lidar_info)
 
+  # Preserve only ones that are in the projected image
+  image_proposals = np.empty((proposals.shape[0], 4), dtype=np.float32)
+  for idx in range(proposals.shape[0]):
+      box = box_from_corners(proposals[idx, :])
+      image_proposals[idx, :] = box_to_rgb_proj(box)
+
+  keep = np.where(
+          (image_proposals[:] >= 0) & 
+          (image_proposals[:,[0,2]] <= (image_info[0] - 1)) & 
+          (image_proposals[:,[1,3]] <= (image_info[1] - 1)))[0]
+
+  proposals = proposals[keep, :]
+  scores = scores[keep]
+
   # Pick the top region proposals
   order = scores.ravel().argsort()[::-1]
   if pre_nms_topN > 0:
@@ -51,20 +65,6 @@ def proposal_layer(rpn_cls_prob, rpn_bbox_pred, lidar_info, image_info, cfg_key,
   proposals = proposals[keep, :]
   scores = scores[keep]
 
-  # Preserve only ones that are in the projected image
-  image_proposals = np.empty((proposals.shape[0], 4), dtype=np.float32)
-  for idx in range(proposals.shape[0]):
-      box = box_from_corners(proposals[idx, :])
-      image_proposals[idx, :] = box_to_rgb_proj(box)
-
-  keep = np.where(
-          (image_proposals[:, 0] >= 0) & 
-          (image_proposals[:, 2] <= (image_info[0] - 1)) & 
-          (image_proposals[:, 1] >= 0) & 
-          (image_proposals[:, 3] <= (image_info[1] - 1)))[0]
-
-  proposals = proposals[keep, :]
-  scores = scores[keep]
 
   # Only support single image as input
   batch_inds = np.zeros((proposals.shape[0], 1), dtype=np.float32)
