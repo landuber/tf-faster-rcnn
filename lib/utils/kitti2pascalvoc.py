@@ -562,7 +562,7 @@ if __name__ == '__main__':
         class_sets = ('pedestrian', 'cyclist', 'car', 'person_sitting', 'van', 'truck', 'tram', 'misc', 'dontcare')
         """
         copy_tree(_lidardir, _dest_lidar_dir, update=1)
-        class_sets = ('pedestrian', 'cyclist', 'car', 'dontcare')
+        class_sets = ('car', 'dontcare')
         class_sets_dict = dict((k, i) for i, k in enumerate(class_sets))
         allclasses = {}
         fs = [open(os.path.join(_dest_set_dir, cls + '_' + dset + '.txt'), 'w') for cls in class_sets ]
