@@ -9,6 +9,7 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
+from model.boxes3d import *
 
 
 def bbox_transform(ex_rois, gt_rois):
@@ -39,7 +40,7 @@ def bbox_transform(ex_rois, gt_rois):
 
 
 def corner_transform(rois_corners, gt_corners):
-    deltas = rois_corners[:,4,:] -  rois_corners[:,0,:]
+    deltas = rois_corners.max(axis=0) - rois_corners.min(axis=0) 
     diagonals = np.hypot(np.hypot(deltas[:,0], deltas[:,1]), deltas[:,2])
     diagonals = diagonals[:, np.newaxis]
     targets = (gt_corners - rois_corners)
