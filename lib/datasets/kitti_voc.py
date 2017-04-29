@@ -177,6 +177,8 @@ class kitti_voc(imdb):
       Remove images with zero annotation ()
       """
       print('Remove empty annotations')
+      removed = 0
+      added = 0
       for i in range(len(self._image_index)-1, -1, -1):
             index = self._image_index[i]
             filename = os.path.join(self._data_path, 'Annotations', index + '.xml')
@@ -186,10 +188,12 @@ class kitti_voc(imdb):
                 obj for obj in objs if \
                     int(obj.find('difficult').text) == 0 and obj.find('name').text.lower().strip() != 'dontcare']
             num_objs = len(non_diff_objs)
+            added += num_objs
             if num_objs == 0:
-                print(index)
+                #print(index)
+                removed += 1
                 self._image_index.pop(i)
-      print('Done. ')
+      print('Done. Added: %d,  Removed: %d' % (added, removed))
 
 
   def _load_pascal_annotation(self, index):

@@ -611,9 +611,9 @@ if __name__ == '__main__':
                 lidar = lidar.reshape((-1, 4))
                 if _draw:
                     top = _draw_on_image(img, objs, class_sets_dict, side=0)
-                cv2.imwrite(os.path.join(_dest_img_dir, stem + '.jpg'), img)
             
             
+            cv2.imwrite(os.path.join(_dest_img_dir, stem + '.jpg'), img)
             xmlfile = os.path.join(_dest_label_dir, stem + '.xml')
             with open(xmlfile, 'w') as f:
                 f.write(doc.toprettyxml(indent='	'))
