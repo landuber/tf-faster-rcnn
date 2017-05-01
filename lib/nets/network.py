@@ -435,7 +435,7 @@ class Network(object):
 
     with arg_scope([slim.conv2d, slim.fully_connected], biases_regularizer=biases_regularizer, 
                     biases_initializer=tf.constant_initializer(0.0)): 
-      rois, cls_prob, bbox_pred = self.build_network(sess, training)
+      rois, cls_prob, corner_pred = self.build_network(sess, training)
 
     layers_to_output = {'rois': rois}
     layers_to_output.update(self._predictions)
@@ -446,8 +446,8 @@ class Network(object):
     if mode == 'TEST':
       stds = np.tile(np.array(cfg.TRAIN.BBOX_NORMALIZE_STDS), (self._num_classes))
       means = np.tile(np.array(cfg.TRAIN.BBOX_NORMALIZE_MEANS), (self._num_classes))
-      self._predictions["bbox_pred"] *= stds
-      self._predictions["bbox_pred"] += means
+      self._predictions["corner_pred"] *= stds
+      self._predictions["corner_pred"] += means
     else:
       self._add_losses()
       layers_to_output.update(self._losses)

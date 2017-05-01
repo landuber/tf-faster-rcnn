@@ -299,7 +299,8 @@ class kitti_voc(imdb):
 
         overlaps = scipy.sparse.csr_matrix(overlaps)
 
-        return {'boxes' : boxes,
+        return {'roidb_id': index,
+                'boxes' : boxes,
                 'top_boxes': top_boxes,
                 'lidar_boxes': lidar_boxes,
                 'gt_classes': gt_classes,

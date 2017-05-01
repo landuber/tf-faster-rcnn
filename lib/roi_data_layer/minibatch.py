@@ -55,6 +55,7 @@ def get_minibatch(roidb, num_classes):
   gt_corners = np.empty((len(gt_inds), 8, 3), dtype=np.float32)
   gt_corners[:, :, :] = roidb[0]['lidar_boxes'][gt_inds, :]
   #blobs['gt_boxes'] = gt_boxes
+  blobs['roidb_id'] = roidb[0]['roidb_id']
   blobs['gt_boxes'] = gt_boxes
   blobs['gt_corners'] = gt_corners
   blobs['im_info'] = np.array(

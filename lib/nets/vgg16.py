@@ -100,7 +100,7 @@ class vgg16(Network):
       rpn_cls_score_reshape = self._reshape_layer(rpn_cls_score, 2, 'rpn_cls_score_reshape')
       rpn_cls_prob_reshape = self._softmax_layer(rpn_cls_score_reshape, "rpn_cls_prob_reshape")
       rpn_cls_prob = self._reshape_layer(rpn_cls_prob_reshape, self._num_scales * 3 * 2, "rpn_cls_prob")
-      rpn_bbox_pred = slim.conv2d(rpn, self._num_scales * 3 * 6, [1, 1], trainable=self.is_training,
+      rpn_bbox_pred = slim.conv2d(rpn, self._num_scales * 3 * 3 * 2, [1, 1], trainable=self.is_training,
                                   weights_initializer=self._initializer,
                                   padding='VALID', activation_fn=None, scope='rpn_bbox_pred')
       if self.is_training:

@@ -105,12 +105,9 @@ def clip_boxes(boxes, im_shape):
   boxes[:, 0::6] = np.maximum(np.minimum(boxes[:, 0::6], im_shape[1] - 1), 0)
   # y1 >= 0
   boxes[:, 1::6] = np.maximum(np.minimum(boxes[:, 1::6], im_shape[0] - 1), 0)
-  # z1 >= 0
-  boxes[:, 2::6] = np.maximum(np.minimum(boxes[:, 2::6], im_shape[2] - 1), 0)
   # x2 < im_shape[1]
   boxes[:, 3::6] = np.maximum(np.minimum(boxes[:, 3::6], im_shape[1] - 1), 0)
   # y2 < im_shape[0]
   boxes[:, 4::6] = np.maximum(np.minimum(boxes[:, 4::6], im_shape[0] - 1), 0)
-  # z2 >= 0
-  boxes[:, 5::6] = np.maximum(np.minimum(boxes[:, 5::6], im_shape[2] - 1), 0)
+
   return boxes

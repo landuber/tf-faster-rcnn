@@ -275,6 +275,12 @@ class SolverWrapper(object):
               (iter, max_iters, total_loss, rpn_loss_cls, rpn_loss_box, loss_cls, loss_corner, lr.eval()))
         print('speed: {:.3f}s / iter'.format(timer.average_time))
 
+      if rpn_loss_box > 5:
+          print('Problem id: %d  iter: %d / %d, total loss: %.6f\n >>> rpn_loss_cls: %.6f\n '
+              '>>> rpn_loss_box: %.6f\n >>> loss_cls: %.6f\n >>> loss_corner: %.6f\n >>> lr: %f' % \
+              (blob['roidb_id'], iter, max_iters, total_loss, rpn_loss_cls, rpn_loss_box, loss_cls, loss_corner, lr.eval()))
+          print('speed: {:.3f}s / iter'.format(timer.average_time))
+
       if iter % cfg.TRAIN.SNAPSHOT_ITERS == 0:
         last_snapshot_iter = iter
         snapshot_path, np_path = self.snapshot(sess, iter)
