@@ -248,7 +248,7 @@ class Network(object):
     with tf.variable_scope(name) as scope:
       rpn_labels, rpn_bbox_targets, rpn_bbox_inside_weights, rpn_bbox_outside_weights = tf.py_func(
         anchor_target_layer,
-        [rpn_cls_score, self._gt_boxes, self._top_lidar_info, self._feat_stride, self._anchors, self._anchor_scales],
+        [rpn_cls_score, self._gt_boxes, self._top_lidar_info, self._image_info, self._feat_stride, self._anchors, self._anchor_scales],
         [tf.float32, tf.float32, tf.float32, tf.float32])
 
       rpn_labels.set_shape([1, 1, None, None])

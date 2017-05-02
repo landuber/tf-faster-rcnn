@@ -79,6 +79,15 @@ def img_projection_layer(rois, image_info):
           img_rois[idx, :] = box_to_rgb_proj(box)
       return img_rois * image_info[0, 2]
 
+def filter_anchors(anchors, image_info):
+      keep = []
+      for idx in range(anchors.shape[0]):
+          box = box_from_corners(anchors[idx, :])
+          x1, y1, x2, y2 = box_to_rgb_proj(box)
+          if (x1 >= 0 and x2 <= image_info[0, 1] and y1 >= 0 and y2 <= image_info[0, 0]):
+              keep.append(idx)
+      return np.array(keep)
+
 
 
 def box_from_corners(corners):

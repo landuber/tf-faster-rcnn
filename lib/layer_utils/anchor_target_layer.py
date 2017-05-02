@@ -13,16 +13,17 @@ import numpy as np
 import numpy.random as npr
 from utils.cython_bbox import bbox_overlaps
 from model.bbox_transform import bbox_transform
+from model.boxes3d import filter_anhcors
 
 
-def anchor_target_layer(rpn_cls_score, gt_boxes, im_info, _feat_stride, all_anchors, anchor_scales):
+def anchor_target_layer(rpn_cls_score, gt_boxes, lidar_info, img_info, _feat_stride, all_anchors, anchor_scales):
   """Same as the anchor target layer in original Fast/er RCNN """
   scales = np.array(anchor_scales)
   num_anchors = scales.shape[0] * 3
   A = num_anchors
   total_anchors = all_anchors.shape[0]
   K = total_anchors / num_anchors
-  im_info = im_info[0]
+  lidar_info = lidar_info[0]
 
   # allow boxes to sit over the edge by a small amount
   _allowed_border = 0
@@ -30,16 +31,20 @@ def anchor_target_layer(rpn_cls_score, gt_boxes, im_info, _feat_stride, all_anch
   # map of shape (..., H, W)
   height, width = rpn_cls_score.shape[1:3]
 
+  inds_inside_image = filter_anchors(all_anchors, img_info)
+  all_anchors = all_anchors[inds_inside_image, :]
+
   # only keep anchors inside the image
   inds_inside = np.where(
     (all_anchors[:, 0] >= -_allowed_border) &
     (all_anchors[:, 1] >= -_allowed_border) &
-    (all_anchors[:, 3] < im_info[1] + _allowed_border) &  # width
-    (all_anchors[:, 4] < im_info[0] + _allowed_border)   # height
+    (all_anchors[:, 3] < lidar_info[1] + _allowed_border) &  # width
+    (all_anchors[:, 4] < lidar_info[0] + _allowed_border)   # height
   )[0]
 
   # keep only inside anchors
   anchors = all_anchors[inds_inside, :]
+
 
   # label: 1 is positive, 0 is negative, -1 is dont care
   labels = np.empty((len(inds_inside),), dtype=np.float32)
