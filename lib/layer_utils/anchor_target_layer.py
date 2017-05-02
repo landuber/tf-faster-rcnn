@@ -13,7 +13,7 @@ import numpy as np
 import numpy.random as npr
 from utils.cython_bbox import bbox_overlaps
 from model.bbox_transform import bbox_transform
-from model.boxes3d import filter_anhcors
+from model.boxes3d import filter_anchors
 
 
 def anchor_target_layer(rpn_cls_score, gt_boxes, lidar_info, img_info, _feat_stride, all_anchors, anchor_scales):
