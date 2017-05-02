@@ -31,9 +31,6 @@ def anchor_target_layer(rpn_cls_score, gt_boxes, lidar_info, img_info, _feat_str
   # map of shape (..., H, W)
   height, width = rpn_cls_score.shape[1:3]
 
-  inds_inside_image = filter_anchors(all_anchors, img_info)
-  all_anchors = all_anchors[inds_inside_image, :]
-
   # only keep anchors inside the image
   inds_inside = np.where(
     (all_anchors[:, 0] >= -_allowed_border) &

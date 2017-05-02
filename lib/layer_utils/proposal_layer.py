@@ -26,7 +26,6 @@ def proposal_layer(rpn_cls_prob, rpn_bbox_pred, lidar_info, image_info, cfg_key,
   scales = np.array(anchor_scales)
   num_anchors = scales.shape[0] * 3
   lidar_info = lidar_info[0]
-  image_info = image_info[0]
   # Get the scores and bounding boxes
   scores = rpn_cls_prob[:, :, :, num_anchors:]
   rpn_bbox_pred = rpn_bbox_pred.reshape((-1, 6))
@@ -48,6 +47,11 @@ def proposal_layer(rpn_cls_prob, rpn_bbox_pred, lidar_info, image_info, cfg_key,
   # Pick th top region proposals after NMS
   if post_nms_topN > 0:
     keep = keep[:post_nms_topN]
+  proposals = proposals[keep, :]
+  scores = scores[keep]
+
+
+  keep = filter_anchors(proposals, image_info)
   proposals = proposals[keep, :]
   scores = scores[keep]
 
