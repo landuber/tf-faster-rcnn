@@ -240,7 +240,7 @@ def generate_xml(name, lines, calib_lines, img_size = (370, 1224, 3), \
         cam_to_velo = np.linalg.inv(velo_to_cam)
         location = np.array([x,y,z], dtype=np.float32)
         lidar_box = generate_lidar_box(np.array([height, width, length]), location, rot_y, cam_to_velo)
-        corners = corners_from_box(lidar_box)
+        corners = corners_from_box(lidar_box_to_top_box(lidar_box))
 
         if (corners[0] >= 0 and corners[3] <= 800 and corners[1] >=0 and corners[4] <= 704):
             obj = append_xml_node_attr('object', parent=annotation)
