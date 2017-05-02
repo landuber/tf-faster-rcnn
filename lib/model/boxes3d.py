@@ -83,7 +83,7 @@ def filter_anchors(anchors, image_info):
       keep = []
       for idx in range(anchors.shape[0]):
           box = box_from_corners(anchors[idx, :])
-          x1, y1, x2, y2 = box_to_rgb_proj(box)
+          x1, y1, x2, y2 = box_to_rgb_proj(box) * image_info[0, 2]
           if (x1 >= 0 and x2 <= image_info[0, 1] and y1 >= 0 and y2 <= image_info[0, 0]):
               keep.append(idx)
       return np.array(keep)
