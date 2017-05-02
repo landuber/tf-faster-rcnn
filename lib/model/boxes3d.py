@@ -1,5 +1,6 @@
 from common import *
 import numpy as np
+from utils.cython_bbox import bbox_overlaps
 
 def corners_from_box(box):
     return np.hstack((box.min(axis=0), box.max(axis=0)))
@@ -79,14 +80,13 @@ def img_projection_layer(rois, image_info):
           img_rois[idx, :] = box_to_rgb_proj(box)
       return img_rois * image_info[0, 2]
 
-def filter_anchors(anchors, image_info):
-      keep = []
-      for idx in range(anchors.shape[0]):
-          box = box_from_corners(anchors[idx, :])
-          x1, y1, x2, y2 = box_to_rgb_proj(box) * image_info[0, 2]
-          if (x1 >= 0 and x2 <= image_info[0, 1] and y1 >= 0 and y2 <= image_info[0, 0]):
-              keep.append(idx)
-      return np.array(keep)
+def filter_rois(rois, image_info):
+  rois_rect = np.copy(img_projection_layer(rois, image_info))
+  image_rect = np.array([[0, 0, image_info[0, 1], image_info[0, 0]]])
+  overlaps = bbox_overlaps(
+    np.ascontiguousarray(rois_rect, dtype=np.float),
+    np.ascontiguousarray(image_rect, dtype=np.float))
+  return np.where(overlaps.max(axis=1) > 0)[0]
 
 
 

@@ -51,7 +51,7 @@ def proposal_layer(rpn_cls_prob, rpn_bbox_pred, lidar_info, image_info, cfg_key,
   scores = scores[keep]
 
 
-  keep = filter_anchors(proposals, image_info)
+  keep = filter_rois(proposals, image_info)
   proposals = proposals[keep, :]
   scores = scores[keep]
 
