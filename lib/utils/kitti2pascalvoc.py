@@ -222,7 +222,6 @@ def generate_xml(name, lines, calib_lines, img_size = (370, 1224, 3), \
         if not doncateothers and cls not in class_sets:
             continue
         cls = 'dontcare' if cls not in class_sets else cls
-        obj = append_xml_node_attr('object', parent=annotation)
 
         truncation = float(splitted_line[1])
         occlusion = int(float(splitted_line[2]))
@@ -235,44 +234,47 @@ def generate_xml(name, lines, calib_lines, img_size = (370, 1224, 3), \
         x, y, z = float(splitted_line[11]), float(splitted_line[12]), float(splitted_line[13])
         rot_y = float(splitted_line[14])
 
-        append_xml_node_attr('name', parent=obj, text=cls)
-        append_xml_node_attr('pose', parent=obj, text='Left')
-        append_xml_node_attr('truncated', parent=obj, text=str(truncted))
-        append_xml_node_attr('difficult', parent=obj, text=str(int(difficult)))
-        bb = append_xml_node_attr('bndbox', parent=obj)
-        append_xml_node_attr('xmin', parent=bb, text=str(x1))
-        append_xml_node_attr('ymin', parent=bb, text=str(y1))
-        append_xml_node_attr('xmax', parent=bb, text=str(x2))
-        append_xml_node_attr('ymax', parent=bb, text=str(y2))
-        dimensions = append_xml_node_attr('dimensions', parent=obj)
-        append_xml_node_attr('height', parent=dimensions, text=str(height))
-        append_xml_node_attr('width', parent=dimensions, text=str(width))
-        append_xml_node_attr('length', parent=dimensions, text=str(length))
-
         velo_to_cam = np.array(calib_lines[5].strip().lower().split()[1:], dtype=np.float32)
         velo_to_cam = velo_to_cam.reshape((-1, 4))
         velo_to_cam = np.vstack((velo_to_cam, [0., 0., 0., 1.]))
         cam_to_velo = np.linalg.inv(velo_to_cam)
         location = np.array([x,y,z], dtype=np.float32)
         lidar_box = generate_lidar_box(np.array([height, width, length]), location, rot_y, cam_to_velo)
-        lb = append_xml_node_attr('lidar_box', parent=obj)
+        corners = corners_from_box(lidar_box)
 
-        for i in range(lidar_box.shape[0]):
-            cr = append_xml_node_attr('corner', parent=lb)
-            append_xml_node_attr('x', parent=cr, text=str(lidar_box[i, 0]))
-            append_xml_node_attr('y', parent=cr, text=str(lidar_box[i, 1]))
-            append_xml_node_attr('z', parent=cr, text=str(lidar_box[i, 2]))
-        location = append_xml_node_attr('location', parent=obj)
-        append_xml_node_attr('x', parent=location, text=str(x))
-        append_xml_node_attr('y', parent=location, text=str(y))
-        append_xml_node_attr('z', parent=location, text=str(z))
-        append_xml_node_attr('rotation_y', parent=obj, text=str(splitted_line[14]))
-            
+        if (corners[0] >= 0 and corners[3] <= 800 and corners[1] >=0 and corners[4] <= 704):
+            obj = append_xml_node_attr('object', parent=annotation)
+            append_xml_node_attr('name', parent=obj, text=cls)
+            append_xml_node_attr('pose', parent=obj, text='Left')
+            append_xml_node_attr('truncated', parent=obj, text=str(truncted))
+            append_xml_node_attr('difficult', parent=obj, text=str(int(difficult)))
+            bb = append_xml_node_attr('bndbox', parent=obj)
+            append_xml_node_attr('xmin', parent=bb, text=str(x1))
+            append_xml_node_attr('ymin', parent=bb, text=str(y1))
+            append_xml_node_attr('xmax', parent=bb, text=str(x2))
+            append_xml_node_attr('ymax', parent=bb, text=str(y2))
+            dimensions = append_xml_node_attr('dimensions', parent=obj)
+            append_xml_node_attr('height', parent=dimensions, text=str(height))
+            append_xml_node_attr('width', parent=dimensions, text=str(width))
+            append_xml_node_attr('length', parent=dimensions, text=str(length))
+
+            lb = append_xml_node_attr('lidar_box', parent=obj)
+            for i in range(lidar_box.shape[0]):
+                cr = append_xml_node_attr('corner', parent=lb)
+                append_xml_node_attr('x', parent=cr, text=str(lidar_box[i, 0]))
+                append_xml_node_attr('y', parent=cr, text=str(lidar_box[i, 1]))
+                append_xml_node_attr('z', parent=cr, text=str(lidar_box[i, 2]))
+            location = append_xml_node_attr('location', parent=obj)
+            append_xml_node_attr('x', parent=location, text=str(x))
+            append_xml_node_attr('y', parent=location, text=str(y))
+            append_xml_node_attr('z', parent=location, text=str(z))
+            append_xml_node_attr('rotation_y', parent=obj, text=str(splitted_line[14]))
+                
 
 
-        o = {'class': cls, 'box': lidar_box, \
-             'truncation': truncation, 'difficult': difficult, 'occlusion': occlusion}
-        objs.append(o)
+            o = {'class': cls, 'box': lidar_box, \
+                 'truncation': truncation, 'difficult': difficult, 'occlusion': occlusion}
+            objs.append(o)
 
     return  doc, objs
 
@@ -570,6 +572,7 @@ if __name__ == '__main__':
 
         files = glob.glob(os.path.join(_labeldir, '*.txt'))
         files.sort()
+        #files = [files[i] for i in [2441, 830, 3855, 6153, 6447, 2222, 523, 2238, 5982, 4058]]
         for file in files[:]:
             path, basename = os.path.split(file)
             stem, ext = os.path.splitext(basename)
