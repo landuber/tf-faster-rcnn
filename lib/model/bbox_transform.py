@@ -52,6 +52,10 @@ def corner_transform(rois_corners, gt_corners):
 
 def corner_transform_inv(rois_corners, pred_deltas):
     deltas = rois_corners.max(axis=1) - rois_corners.min(axis=1)
+    print('rois')
+    print(rois_corners[0:10, :, :])
+    print('pred_deltas')
+    print(pred_deltas[0:10, :, :])
     rois_mins = rois_corners.min(axis=1)[:, np.newaxis, :]
     diagonals = np.hypot(np.hypot(deltas[:,0], deltas[:,1]), deltas[:,2])
     diagonals = diagonals[:, np.newaxis]
