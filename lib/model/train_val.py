@@ -275,7 +275,7 @@ class SolverWrapper(object):
               (iter, max_iters, total_loss, rpn_loss_cls, rpn_loss_box, loss_cls, loss_corner, lr.eval()))
         print('speed: {:.3f}s / iter'.format(timer.average_time))
 
-      if rpn_loss_box > 5:
+      if loss_corner > 1 or loss_cls > 0.4:
           print('Problem id: %s  iter: %d / %d, total loss: %.6f\n >>> rpn_loss_cls: %.6f\n '
               '>>> rpn_loss_box: %.6f\n >>> loss_cls: %.6f\n >>> loss_corner: %.6f\n >>> lr: %f' % \
               (blobs['roidb_id'], iter, max_iters, total_loss, rpn_loss_cls, rpn_loss_box, loss_cls, loss_corner, lr.eval()))
