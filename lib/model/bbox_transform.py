@@ -52,8 +52,14 @@ def corner_transform(rois_corners, gt_corners):
     print(rois_mins[:2, :])
     diagonals = np.hypot(np.hypot(deltas[:,0], deltas[:,1]), deltas[:,2])
     diagonals = diagonals[:, np.newaxis]
+    print('diagonals')
+    print(diagonals[:2, :])
     targets = (gt_corners - rois_mins)
+    print('targets')
+    print(targets[:2, :])
     targets = targets.transpose((0, 2, 1)).reshape((-1, 24))
+    print('targets flattened')
+    print(targets[:2, :])
     targets = targets / diagonals
     return targets
 
