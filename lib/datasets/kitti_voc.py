@@ -289,6 +289,7 @@ class kitti_voc(imdb):
         dontcare_areas = boxes[dontcare_inds, :]
         boxes = boxes[care_inds, :]
         top_boxes = top_boxes[care_inds, :]
+        lidar_boxes = lidar_boxes[care_inds, :]
         dimensions = dimensions[care_inds, :]
         locations = locations[care_inds, :]
         rotations_y = rotations_y[care_inds]

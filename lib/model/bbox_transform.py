@@ -55,8 +55,9 @@ def corner_transform_inv(rois_corners, pred_deltas):
     rois_mins = rois_corners.min(axis=1)[:, np.newaxis, :]
     diagonals = np.hypot(np.hypot(deltas[:,0], deltas[:,1]), deltas[:,2])
     diagonals = diagonals[:, np.newaxis]
-    pred_corners = pred_deltas * diagonals
     pred_corners = pred_corners.reshape((-1, 3, 8)).transpose(0, 2, 1)
+    pred_corners = pred_corners + rois_mins
+    pred_corners = pred_deltas * diagonals
     return pred_corners
 
 
