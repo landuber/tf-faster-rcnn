@@ -82,16 +82,16 @@ def img_projection_layer(rois, image_info):
 
 def  pred_projection_layer(pred, rois, scores, image_info):
      keep = np.where(scores[:,1] > .5)[0]
-     box = corner_transform_inv(rois[keep, :], pred[keep, 24:])
+     box = corner_transform_inv(top_box_to_lidar_box(rois[keep, :]), pred[keep, 24:])
      pred_corners = corners_from_box(box)
      return img_projection_layer(pred_corners, image_info)
 
 def corner_transform_inv(rois_corners, pred_deltas):
-    deltas = rois_corners[:,3:6] - rois_corners[:,0:3]
-    rois_mins = rois_corners[:, 0:3]
+    deltas = rois_corners.max(axis=1) - rois_corners.min(axis=1)
+    rois_mins = rois_corners.min(axis=1)[:, np.newaxis, :]
     diagonals = np.hypot(np.hypot(deltas[:,0], deltas[:,1]), deltas[:,2])
     diagonals = diagonals[:, np.newaxis]
-    pred_corners = pred_corners.reshape((-1, 3, 8)).transpose(0, 2, 1)
+    pred_corners = pred_deltas.reshape((-1, 3, 8)).transpose(0, 2, 1)
     pred_corners = pred_corners + rois_mins
     pred_corners = pred_deltas * diagonals
     return pred_corners
