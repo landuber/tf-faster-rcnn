@@ -1,7 +1,6 @@
 from common import *
 import numpy as np
 from utils.cython_bbox import bbox_overlaps
-from model.bbox_transform import *
 
 def corners_from_box(box):
     return np.hstack((box.min(axis=0), box.max(axis=0)))
@@ -86,6 +85,16 @@ def  pred_projection_layer(pred, rois, scores, image_info):
      box = corner_transform_inv(rois[keep, :], pred[keep, 24:])
      pred_corners = corners_from_box(box)
      return img_projection_layer(pred_corners, image_info)
+
+def corner_transform_inv(rois_corners, pred_deltas):
+    deltas = rois_corners.max(axis=1) - rois_corners.min(axis=1)
+    rois_mins = rois_corners.min(axis=1)[:, np.newaxis, :]
+    diagonals = np.hypot(np.hypot(deltas[:,0], deltas[:,1]), deltas[:,2])
+    diagonals = diagonals[:, np.newaxis]
+    pred_corners = pred_corners.reshape((-1, 3, 8)).transpose(0, 2, 1)
+    pred_corners = pred_corners + rois_mins
+    pred_corners = pred_deltas * diagonals
+    return pred_corners
 
 def filter_rois(rois, image_info):
   rois_rect = np.copy(img_projection_layer(rois, image_info))
