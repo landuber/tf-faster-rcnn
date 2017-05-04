@@ -119,7 +119,6 @@ class Network(object):
   def _add_img_pred_summary(self, image, pred, rois, scores, name="pred"):
     # add back mean
     image += cfg.PIXEL_MEANS
-    boxes = tf.slice(boxes, [0, 0], [-1, 6])
     boxes = tf.py_func(pred_projection_layer, [pred, rois, scores, self._image_info], tf.float32)
     boxes.set_shape([None, 4])
     # bgr to rgb (opencv uses bgr)
