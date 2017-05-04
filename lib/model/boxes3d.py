@@ -35,6 +35,7 @@ def top_box_to_lidar_box(b):
     return lidar_box
 
 
+
 def lidar_box_to_top_box(b):
     x0 = b[0,0]
     y0 = b[0,1]
@@ -82,9 +83,8 @@ def img_projection_layer(rois, image_info):
 
 def  pred_projection_layer(pred, rois, scores, image_info):
      keep = np.where(scores[:,1] > .5)[0]
-     box = corner_transform_inv(top_box_to_lidar_box(rois[keep, :]), pred[keep, 24:])
-     pred_corners = corners_from_box(box)
-     return img_projection_layer(pred_corners, image_info)
+     top_corners = corner_transform_inv(top_box_to_lidar_box(rois[keep, :]), pred[keep, 24:])
+     return img_projection_layer(top_corners, image_info)
 
 def corner_transform_inv(rois_corners, pred_deltas):
     deltas = rois_corners.max(axis=1) - rois_corners.min(axis=1)
@@ -94,7 +94,13 @@ def corner_transform_inv(rois_corners, pred_deltas):
     pred_corners = pred_deltas.reshape((-1, 3, 8)).transpose(0, 2, 1)
     pred_corners = pred_corners + rois_mins
     pred_corners = pred_deltas * diagonals
-    return pred_corners
+    top_corners = np.empty_like((lidar_corners.shape[0], 6))
+    for idx in range(lidar_corners.shape[0]):
+        top_corners[idx, :] = lidar_box_to_top_box(pred_corners[idx, :])
+
+    return top_corners
+
+
 
 def filter_rois(rois, image_info):
   rois_rect = np.copy(img_projection_layer(rois, image_info))
