@@ -98,6 +98,8 @@ def corner_transform_inv(rois_corners, pred_deltas):
     for idx in range(pred_corners.shape[0]):
         top_corners[idx, :] = lidar_box_to_top_box(pred_corners[idx, :])
 
+    print(top_corners)
+
     return top_corners
 
 
