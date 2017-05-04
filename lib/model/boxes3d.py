@@ -80,6 +80,12 @@ def img_projection_layer(rois, image_info):
           img_rois[idx, :] = box_to_rgb_proj(box)
       return img_rois * image_info[0, 2]
 
+def  pred_projection_layer(pred, rois, scores, image_info):
+     keep = np.where(scores[:,1] > .5)[0]
+     box = corner_transform_inv(rois[keep, :], pred[keep, 24:])
+     pred_corners = corners_from_box(box)
+     return img_projection_layer(pred_corners, image_info)
+
 def filter_rois(rois, image_info):
   rois_rect = np.copy(img_projection_layer(rois, image_info))
   image_rect = np.array([[0, 0, image_info[0, 1], image_info[0, 0]]])

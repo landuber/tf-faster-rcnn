@@ -116,6 +116,31 @@ class Network(object):
     
     return tf.summary.image(name, image)
 
+  def _add_img_pred_summary(self, image, pred, rois, scores, name="pred"):
+    # add back mean
+    image += cfg.PIXEL_MEANS
+    boxes = tf.slice(boxes, [0, 0], [-1, 6])
+    boxes = tf.py_func(pred_projection_layer, [pred, rois, scores, self._image_info], tf.float32)
+    boxes.set_shape([None, 4])
+    # bgr to rgb (opencv uses bgr)
+    channels = tf.unstack (image, axis=-1)
+    image    = tf.stack ([channels[2], channels[1], channels[0]], axis=-1)
+    # dims for normalization
+    width  = tf.to_float(tf.shape(image)[2])
+    height = tf.to_float(tf.shape(image)[1])
+    # from [x1, y1, x2, y2, cls] to normalized [y1, x1, y1, x1]
+    cols = tf.unstack(boxes, axis=1)
+    boxes = tf.stack([cols[1] / height,
+                      cols[0] / width,
+                      cols[3] / height,
+                      cols[2] / width], axis=1)
+    # add batch dimension (assume batch_size==1)
+    assert image.get_shape()[0] == 1
+    boxes = tf.expand_dims(boxes, dim=0)
+    image = tf.image.draw_bounding_boxes(image, boxes)
+    
+    return tf.summary.image(name, image)
+
   def _add_act_summary(self, tensor):
     tf.summary.histogram('ACT/' + tensor.op.name + '/activations', tensor)
     tf.summary.scalar('ACT/' + tensor.op.name + '/zero_fraction',
@@ -467,6 +492,11 @@ class Network(object):
       val_summaries.append(self._add_fv_lidar_summary(self._front_lidar, rois, name="rois_fv"))
       val_summaries.append(self._add_img_summary(self._image, rois, name="rois_img"))
 
+      scores = tf.nn.softmax(tf.reshape(self._predictions["cls_score"], [-1, self._num_classes]))
+      val_summaries.append(self._add_img_pred_summary(self._image
+          , self._predictions["corner_pred"]
+          , rois
+          , scores))
       #val_summaries.append(self._add_bv_lidar_summary(self._top_lidar, self._anchors, name="anchors"))
       #pre_rois = tf.slice(self._predictions["pre_rois"], [0, 1], [-1, 6])
       #val_summaries.append(self._add_bv_lidar_summary(self._top_lidar, pre_rois, name="pre_rois_bv"))
