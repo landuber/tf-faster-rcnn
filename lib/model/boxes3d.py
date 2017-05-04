@@ -95,7 +95,7 @@ def corner_transform_inv(rois_corners, pred_deltas):
     pred_corners = pred_corners + rois_mins
     pred_corners = pred_deltas * diagonals
     top_corners = np.empty_like((pred_corners.shape[0], 6))
-    for idx in range(lidar_corners.shape[0]):
+    for idx in range(pred_corners.shape[0]):
         top_corners[idx, :] = lidar_box_to_top_box(pred_corners[idx, :])
 
     return top_corners
