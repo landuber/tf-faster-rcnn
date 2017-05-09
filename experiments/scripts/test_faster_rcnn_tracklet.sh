@@ -59,7 +59,7 @@ fi
 set -x
 
 if [[ ! -z  ${EXTRA_ARGS_SLUG}  ]]; then
-  CUDA_VISIBLE_DEVICES=${GPU_ID} time python ./tools/test_net.py \
+  CUDA_VISIBLE_DEVICES=${GPU_ID} time python ./tools/test_tracklets.py \
     --imdb ${TEST_IMDB} \
     --model ${NET_FINAL} \
     --cfg experiments/cfgs/${NET}.yml \
@@ -67,7 +67,7 @@ if [[ ! -z  ${EXTRA_ARGS_SLUG}  ]]; then
     --net ${NET} \
     --set ANCHOR_SCALES ${ANCHORS} ${EXTRA_ARGS}
 else
-  CUDA_VISIBLE_DEVICES=${GPU_ID} time python ./tools/test_net.py \
+  CUDA_VISIBLE_DEVICES=${GPU_ID} time python ./tools/test_tracklets.py \
     --imdb ${TEST_IMDB} \
     --model ${NET_FINAL} \
     --cfg experiments/cfgs/${NET}.yml \

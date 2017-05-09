@@ -521,15 +521,16 @@ class Network(object):
     return feat
 
   # only useful during testing mode
-  def test_top_lidar(self, sess, image, top_lidar_info):
-    feed_dict = {self._top_lidar: image,
-                 self._top_lidar_info: top_lidar_info}
+  def test(self, sess, blobs):
+    feed_dict = {self._top_lidar: blobs['top_lidar'], self._front_lidar: blobs['front_lidar'], self._image: blobs['image'], \
+            self._image_info: blobs['im_info'], self._top_lidar_info: blobs['top_lidar_info']}
+
     cls_score, cls_prob, corner_pred, rois = sess.run([self._predictions["cls_score"],
                                                      self._predictions['cls_prob'],
                                                      self._predictions['corner_pred'],
                                                      self._predictions['rois']],
                                                     feed_dict=feed_dict)
-    return cls_score, cls_prob, bbox_pred, rois
+    return cls_score, cls_prob, corner_pred, rois
 
   def get_summary(self, sess, blobs):
     feed_dict = {self._top_lidar: blobs['top_lidar'], self._front_lidar: blobs['front_lidar'], self._image: blobs['image'], \

@@ -81,11 +81,13 @@ def img_projection_layer(rois, image_info):
           img_rois[idx, :] = box_to_rgb_proj(box)
       return img_rois * image_info[0, 2]
 
-def  pred_projection_layer(pred, rois, scores, image_info):
+def  pred_projection_layer(pred, rois, scores, image_info, num_classes=2):
      keep = scores[:, 1].T.argsort()[-10:][::-1]
      if len(keep) > 0:
-	     top_corners = corner_transform_inv(top_box_to_lidar_box(rois[keep, :]), pred[keep, 24:])
-	     keep = filter_rois(top_corners, image_info)
+             #todo: make this flexible for multiple classes
+	     top_corners = corner_transform_inv(top_box_to_lidar_box(rois[keep, :]), pred[keep, :])
+             top_corners = np.delete(top_corners, np.arange(top_corners.shape[0])[::num_classes], axis=0)
+             keep = filter_rois(top_corners, image_info)
 	     if len(keep) > 0:
 	     	return img_projection_layer(top_corners[keep, :], image_info)
 	     else:

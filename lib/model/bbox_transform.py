@@ -50,12 +50,15 @@ def corner_transform(rois_corners, gt_corners):
     return targets
 
 
-def corner_transform_inv(rois_corners, pred_deltas):
+def corner_transform_inv(rois_corners, pred_deltas, num_classes):
     deltas = rois_corners.max(axis=1) - rois_corners.min(axis=1)
-    rois_mins = rois_corners.min(axis=1)[:, np.newaxis, :]
+    rois_mins = rois_corners.min(axis=1)
+    rois_mins = np.tile(rois_mins, (1,num_classes)).reshape((-1, 3))
+    rois_mins = rois_mins[:, np.newaxis, :]
     diagonals = np.hypot(np.hypot(deltas[:,0], deltas[:,1]), deltas[:,2])
     diagonals = diagonals[:, np.newaxis]
     pred_corners = pred_deltas * diagonals
+    pred_corners = pred_corners.reshape((-1, 24))
     pred_corners = pred_corners.reshape((-1, 3, 8)).transpose(0, 2, 1)
     pred_corners = pred_corners + rois_mins
     top_corners = np.empty((pred_corners.shape[0], 6))
@@ -63,7 +66,7 @@ def corner_transform_inv(rois_corners, pred_deltas):
          temp = lidar_box_to_top_box(pred_corners[idx, :])
 	 top_corners[idx, :] = corners_from_box(temp)
 
-    return top_corners
+    return top_corners, pred_corners
 
 
 def bbox_transform_inv(boxes, deltas):
