@@ -3,6 +3,7 @@
 *.swp
 KITTIVOC
 KITTIVOC3D
+kittivoc3d_test
 data
 output
 tensorboard

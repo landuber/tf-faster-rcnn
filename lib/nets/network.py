@@ -468,10 +468,11 @@ class Network(object):
       self._train_summaries.append(var)
 
     if mode == 'TEST':
-      stds = np.tile(np.array(cfg.TRAIN.BBOX_NORMALIZE_STDS), (self._num_classes))
-      means = np.tile(np.array(cfg.TRAIN.BBOX_NORMALIZE_MEANS), (self._num_classes))
-      self._predictions["corner_pred"] *= stds
-      self._predictions["corner_pred"] += means
+      print(mode)
+      #stds = np.tile(np.array(cfg.TRAIN.BBOX_NORMALIZE_STDS), (self._num_classes))
+      #means = np.tile(np.array(cfg.TRAIN.BBOX_NORMALIZE_MEANS), (self._num_classes))
+      #self._predictions["corner_pred"] *= stds
+      #self._predictions["corner_pred"] += means
     else:
       self._add_losses()
       layers_to_output.update(self._losses)

@@ -22,9 +22,9 @@ from utils.boxes_grid import get_boxes_grid
 from utils.blob import prep_im_for_blob, im_list_to_blob, lidar_list_to_blob
 
 from model.common import *
-from model.config import cfg, get_output_dir
-from model.bbox_transform import corner_transform_inv
+from model.config import cfg, get_output_tracklets_dir
 from model.boxes3d import *
+from model.bbox_transform import corner_transform_inv
 
 
 def _get_lidar_blob(lidar_path):
@@ -162,6 +162,19 @@ def _get_image_blob(im):
   return blob, im_scale_factors
 
 
+def _draw_on_image(im, corners):
+  for i in range(corners.shape[0]):
+    points = np.zeros((corners[i, :].shape[0], 2), dtype=np.float32)
+    for k in range(corners[i, :].shape[0]):
+      point_x, point_y = lidar_to_rgb_coord(corners[i, k, 0],
+				       corners[i, k, 1],
+				       corners[i, k, 2])
+      points[k, :] = [point_x, point_y]
+    x1, y1 = points.min(axis=0)
+    x2, y2 = points.max(axis=0)
+    cv2.rectangle(im, (int(x1), int(y1)), (int(x2), int(y2)), (173, 223, 48), 1)
+  return im
+
 def _clip_boxes(boxes, im_shape):
   """Clip boxes to image boundaries."""
   # x1 >= 0
@@ -181,7 +194,7 @@ def _rescale_boxes(boxes, inds, scales):
 
   return boxes
 
-def im_detect(sess, net, im, lidar_path):
+def im_detect(sess, net, im, lidar_path, num_classes):
   im_blob, im_scales = _get_image_blob(im)
   top_lidar_blob, front_lidar_blob = _get_lidar_blob(lidar_path)
   assert len(im_scales) == 1, "Only single-image batch implemented"
@@ -207,7 +220,7 @@ def im_detect(sess, net, im, lidar_path):
   corner_pred = np.reshape(corner_pred, [corner_pred.shape[0], -1])
   # Apply bounding-box regression deltas
   corner_deltas = corner_pred
-  _, pred_corners = corner_transform_inv(corners, box_deltas)
+  _, pred_corners = corner_transform_inv(corners, corner_deltas, num_classes)
 
   return scores, pred_corners
 
@@ -240,12 +253,12 @@ def apply_nms(all_boxes, thresh):
       nms_boxes[cls_ind][im_ind] = dets[keep, :].copy()
   return nms_boxes
 
-def test_net(sess, net, test_path, weights_filename, max_per_image=100, thresh=0.05):
+def test_net(sess, net, num_classes, test_path, weights_filename, max_per_image=100, thresh=0.5):
   
   _imagedir = os.path.join(test_path, 'JPEGImages')
   _lidardir = os.path.join(test_path, 'Lidar')
 
-  img_files = glob.glob(os.path.join(_imagedir, '*.jpg'))
+  img_files = glob.glob(os.path.join(_imagedir, '*.png'))
   lidar_files = glob.glob(os.path.join(_lidardir, '*.bin'))  
 
   img_files.sort()
@@ -264,12 +277,12 @@ def test_net(sess, net, test_path, weights_filename, max_per_image=100, thresh=0
   _t = {'im_detect' : Timer(), 'misc' : Timer()}
 
   for i, file in enumerate(img_files):
-    path, basename = os.path.splite(file)
+    path, basename = os.path.split(file)
     stem, ext = os.path.splitext(basename)
-    im = cv2.imread(imdb.image_path_at(file))
+    im = cv2.imread(file)
 
     _t['im_detect'].tic()
-    scores, corners = im_detect(sess, net, im, lidar_files[i])
+    scores, corners = im_detect(sess, net, im, lidar_files[i], num_classes)
     _t['im_detect'].toc()
 
     _t['misc'].tic()
@@ -280,6 +293,9 @@ def test_net(sess, net, test_path, weights_filename, max_per_image=100, thresh=0
     for j in range(1, num_classes):
       inds = np.where(scores[:, j] > thresh)[0]
       cls_scores = scores[inds, j]
+      im = _draw_on_image(im, corners[inds, j, :])
+      det_im = os.path.join(output_dir, basename + '.png')
+      cv2.imwrite(det_im, im)
       cls_corners = corners[inds, j, :].reshape((-1, 24))
       cls_dets = np.hstack((cls_corners, cls_scores[:, np.newaxis])) \
         .astype(np.float32, copy=False)

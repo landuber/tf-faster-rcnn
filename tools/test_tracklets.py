@@ -110,6 +110,6 @@ if __name__ == '__main__':
     sess.run(tf.global_variables_initializer())
     print('Loaded.')
 
-  test_net(sess, net, test_path, filename, max_per_image=args.max_per_image)
+  test_net(sess, net, num_classes, test_path, filename, max_per_image=args.max_per_image)
 
   sess.close()

@@ -58,18 +58,19 @@ else
 fi
 set -x
 
+DATA_PATH=./kittivoc3d_test
 if [[ ! -z  ${EXTRA_ARGS_SLUG}  ]]; then
   CUDA_VISIBLE_DEVICES=${GPU_ID} time python ./tools/test_tracklets.py \
-    --imdb ${TEST_IMDB} \
     --model ${NET_FINAL} \
+    --path  ${DATA_PATH} \
     --cfg experiments/cfgs/${NET}.yml \
     --tag ${EXTRA_ARGS_SLUG} \
     --net ${NET} \
     --set ANCHOR_SCALES ${ANCHORS} ${EXTRA_ARGS}
 else
   CUDA_VISIBLE_DEVICES=${GPU_ID} time python ./tools/test_tracklets.py \
-    --imdb ${TEST_IMDB} \
     --model ${NET_FINAL} \
+    --path  ${DATA_PATH} \
     --cfg experiments/cfgs/${NET}.yml \
     --net ${NET} \
     --set ANCHOR_SCALES ${ANCHORS} ${EXTRA_ARGS}
