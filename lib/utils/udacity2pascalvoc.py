@@ -11,10 +11,11 @@ import numpy as np
 import math
 import shutil
 import time
+#from  mayavi import mlab
 
 TOP_Y_MIN=-40  #40
 TOP_Y_MAX=+40
-TOP_X_MIN=0
+TOP_X_MIN=-70.4
 TOP_X_MAX=70.4   #70.4
 TOP_Z_MIN=-1.73    ###<todo> determine the correct values!
 TOP_Z_MAX=0.67
@@ -27,11 +28,11 @@ TOP_Z_DIVISION=0.1
 HORIZONTAL_FOV = math.pi
 HORIZONTAL_MAX = HORIZONTAL_FOV
 HORIZONTAL_MIN = 0.0
-VERTICAL_FOV = math.pi * 26.8 / 180
-VERTICAL_MAX = VERTICAL_FOV / 2
-VERTICAL_MIN = -VERTICAL_FOV / 2
-HORIZONTAL_RESOLUTION = HORIZONTAL_FOV/512 #
-VERTICAL_RESOLUTION = VERTICAL_FOV / 64 # 26.8 / 64
+VERTICAL_FOV = math.pi * 41.33 / 180
+VERTICAL_MAX = math.pi * 10.67 / 180
+VERTICAL_MIN = -math.pi * 30.67 / 180
+HORIZONTAL_RESOLUTION = HORIZONTAL_FOV / 512 #
+VERTICAL_RESOLUTION = VERTICAL_FOV / 128 # 41.33 / 32
 
 TR_VELO_TO_CAM = ([[ 0.                , -1.                ,  0.                ,  0.                ],
                    [ 0.                ,  0.                , -1.                ,  3.300000000000e-01],
@@ -198,33 +199,31 @@ def generate_xml(po, camera_info,
     corners = corners_from_box(lidar_box_to_top_box(lidar_box))
     x1_img, y1_img, x2_img, y2_img = box_to_front_proj(lidar_box)
 
-    if (corners[0] >= 0 and corners[3] <= 800 and corners[1] >=0 and corners[4] <= 704 and
-        x1_img >= 0 and x2_img <= img_size[1] and y1_img >= 0 and y2_img <= img_size[0]):
-        obj = append_xml_node_attr('object', parent=annotation)
-        append_xml_node_attr('name', parent=obj, text=cls)
-        append_xml_node_attr('pose', parent=obj, text='Left')
-        append_xml_node_attr('truncated', parent=obj, text=str(truncted))
-        append_xml_node_attr('difficult', parent=obj, text=str(int(difficult)))
-        dimensions = append_xml_node_attr('dimensions', parent=obj)
-        append_xml_node_attr('height', parent=dimensions, text=str(height))
-        append_xml_node_attr('width', parent=dimensions, text=str(width))
-        append_xml_node_attr('length', parent=dimensions, text=str(length))
+    obj = append_xml_node_attr('object', parent=annotation)
+    append_xml_node_attr('name', parent=obj, text=cls)
+    append_xml_node_attr('pose', parent=obj, text='Left')
+    append_xml_node_attr('truncated', parent=obj, text=str(truncted))
+    append_xml_node_attr('difficult', parent=obj, text=str(int(difficult)))
+    dimensions = append_xml_node_attr('dimensions', parent=obj)
+    append_xml_node_attr('height', parent=dimensions, text=str(height))
+    append_xml_node_attr('width', parent=dimensions, text=str(width))
+    append_xml_node_attr('length', parent=dimensions, text=str(length))
 
-        lb = append_xml_node_attr('lidar_box', parent=obj)
-        for i in range(lidar_box.shape[0]):
-            cr = append_xml_node_attr('corner', parent=lb)
-            append_xml_node_attr('x', parent=cr, text=str(lidar_box[i, 0]))
-            append_xml_node_attr('y', parent=cr, text=str(lidar_box[i, 1]))
-            append_xml_node_attr('z', parent=cr, text=str(lidar_box[i, 2]))
-        location = append_xml_node_attr('location', parent=obj)
-        append_xml_node_attr('x', parent=location, text=str(x))
-        append_xml_node_attr('y', parent=location, text=str(y))
-        append_xml_node_attr('z', parent=location, text=str(z))
+    lb = append_xml_node_attr('lidar_box', parent=obj)
+    for i in range(lidar_box.shape[0]):
+       cr = append_xml_node_attr('corner', parent=lb)
+       append_xml_node_attr('x', parent=cr, text=str(lidar_box[i, 0]))
+       append_xml_node_attr('y', parent=cr, text=str(lidar_box[i, 1]))
+       append_xml_node_attr('z', parent=cr, text=str(lidar_box[i, 2]))
+    location = append_xml_node_attr('location', parent=obj)
+    append_xml_node_attr('x', parent=location, text=str(x))
+    append_xml_node_attr('y', parent=location, text=str(y))
+    append_xml_node_attr('z', parent=location, text=str(z))
                 
 
 
-        o = {'class': cls, 'box': lidar_box}
-        objs.append(o)
+    o = {'class': cls, 'box': lidar_box}
+    objs.append(o)
 
     return  doc, objs
 
@@ -303,6 +302,75 @@ def build_voc_dirs(outdir):
 
     return os.path.join(outdir, 'Annotations'), os.path.join(outdir, 'JPEGImages'), os.path.join(outdir, 'Lidar'), os.path.join(outdir, 'ImageSets', 'Main')
 
+def draw_lidar(lidar, is_grid=False, is_top_region=True, fig=None):
+
+    pxs=lidar[:,0]
+    pys=lidar[:,1]
+    pzs=lidar[:,2]
+    prs=lidar[:,3]
+
+    if fig is None: fig = mlab.figure(figure=None, bgcolor=(0,0,0), fgcolor=None, engine=None, size=(1000, 500))
+
+    mlab.points3d(
+        pxs, pys, pzs, prs,
+        mode='point',  # 'point'  'sphere'
+        colormap='gnuplot',  #'bone',  #'spectral',  #'copper',
+        scale_factor=1,
+        figure=fig)
+
+    #draw grid
+    if is_grid:
+        mlab.points3d(0, 0, 0, color=(1,1,1), mode='sphere', scale_factor=0.2)
+
+        for y in np.arange(-50,50,1):
+            x1,y1,z1 = -50, y, 0
+            x2,y2,z2 =  50, y, 0
+            mlab.plot3d([x1, x2], [y1, y2], [z1,z2], color=(0.5,0.5,0.5), tube_radius=None, line_width=1, figure=fig)
+
+        for x in np.arange(-50,50,1):
+            x1,y1,z1 = x,-50, 0
+            x2,y2,z2 = x, 50, 0
+            mlab.plot3d([x1, x2], [y1, y2], [z1,z2], color=(0.5,0.5,0.5), tube_radius=None, line_width=1, figure=fig)
+
+    #draw axis
+    if 0:
+        mlab.points3d(0, 0, 0, color=(1,1,1), mode='sphere', scale_factor=0.2)
+
+        axes=np.array([
+            [2.,0.,0.,0.],
+            [0.,2.,0.,0.],
+            [0.,0.,2.,0.],
+        ],dtype=np.float64)
+        fov=np.array([  ##<todo> : now is 45 deg. use actual setting later ...
+            [20., 20., 0.,0.],
+            [20.,-20., 0.,0.],
+        ],dtype=np.float64)
+
+
+        mlab.plot3d([0, axes[0,0]], [0, axes[0,1]], [0, axes[0,2]], color=(1,0,0), tube_radius=None, figure=fig)
+        mlab.plot3d([0, axes[1,0]], [0, axes[1,1]], [0, axes[1,2]], color=(0,1,0), tube_radius=None, figure=fig)
+        mlab.plot3d([0, axes[2,0]], [0, axes[2,1]], [0, axes[2,2]], color=(0,0,1), tube_radius=None, figure=fig)
+        mlab.plot3d([0, fov[0,0]], [0, fov[0,1]], [0, fov[0,2]], color=(1,1,1), tube_radius=None, line_width=1, figure=fig)
+        mlab.plot3d([0, fov[1,0]], [0, fov[1,1]], [0, fov[1,2]], color=(1,1,1), tube_radius=None, line_width=1, figure=fig)
+
+    #draw top_image feature area
+    if is_top_region:
+        x1 = TOP_X_MIN
+        x2 = TOP_X_MAX
+        y1 = TOP_Y_MIN
+        y2 = TOP_Y_MAX
+        mlab.plot3d([x1, x1], [y1, y2], [0,0], color=(0.5,0.5,0.5), tube_radius=None, line_width=1, figure=fig)
+        mlab.plot3d([x2, x2], [y1, y2], [0,0], color=(0.5,0.5,0.5), tube_radius=None, line_width=1, figure=fig)
+        mlab.plot3d([x1, x2], [y1, y1], [0,0], color=(0.5,0.5,0.5), tube_radius=None, line_width=1, figure=fig)
+        mlab.plot3d([x1, x2], [y2, y2], [0,0], color=(0.5,0.5,0.5), tube_radius=None, line_width=1, figure=fig)
+
+
+
+    mlab.orientation_axes()
+    mlab.view(azimuth=180,elevation=None,distance=50,focalpoint=[ 12.0909996 , -1.04700089, -2.03249991])#2.0909996 , -1.04700089, -2.03249991
+    print(mlab.view())
+    mlab.show(1)
+
 def _draw_on_image(img, objs, class_sets_dict, side=0):
     colors = [(86, 0, 240), (173, 225, 61), (54, 137, 255),\
               (151, 0, 255), (243, 223, 48), (0, 117, 255),\
@@ -342,7 +410,7 @@ def _draw_on_image(img, objs, class_sets_dict, side=0):
 def lidar_to_front_coord(xx, yy, zz):
     THETA0,THETAn = 0, int((HORIZONTAL_MAX-HORIZONTAL_MIN)/HORIZONTAL_RESOLUTION)
     PHI0, PHIn = 0, int((VERTICAL_MAX-VERTICAL_MIN)/VERTICAL_RESOLUTION)
-    c = ((np.arctan2(xx, -yy) - HORIZONTAL_MIN) / HORIZONTAL_RESOLUTION).astype(np.int32)
+    c = ((np.absolute(np.arctan2(xx, -yy)) - HORIZONTAL_MIN) / HORIZONTAL_RESOLUTION).astype(np.int32)
     r = ((np.arctan2(zz, np.hypot(xx, yy)) - VERTICAL_MIN) / VERTICAL_RESOLUTION).astype(np.int32)
     yy, xx = PHIn - int(r), THETAn - int(c) 
     return xx, yy
@@ -399,17 +467,17 @@ def box_to_rgb_proj(box):
 def lidar_to_front_tensor(lidar):
     THETA0,THETAn = 0, int((HORIZONTAL_MAX-HORIZONTAL_MIN)/HORIZONTAL_RESOLUTION)
     PHI0, PHIn = 0, int((VERTICAL_MAX-VERTICAL_MIN)/VERTICAL_RESOLUTION)
-    indices = np.where((lidar[:, 0] > 0.0))[0]
+    #indices = np.where((lidar[:, 0] > 0.0))[0]
 
     width = THETAn - THETA0
     height = PHIn - PHI0
 
-    pxs=lidar[indices,0]
-    pys=lidar[indices,1]
-    pzs=lidar[indices,2]
-    prs=lidar[indices,3]
+    pxs=lidar[:,0]
+    pys=lidar[:,1]
+    pzs=lidar[:,2]
+    prs=lidar[:,3]
 
-    cs = ((np.arctan2(pxs, -pys) - HORIZONTAL_MIN) / HORIZONTAL_RESOLUTION).astype(np.int32)
+    cs = ((np.absolute(np.arctan2(pxs, -pys)) - HORIZONTAL_MIN) / HORIZONTAL_RESOLUTION).astype(np.int32)
     rs = ((np.arctan2(pzs, np.hypot(pxs, pys)) - VERTICAL_MIN) / VERTICAL_RESOLUTION).astype(np.int32)
     ds = np.hypot(pxs, pys)
 
@@ -417,7 +485,6 @@ def lidar_to_front_tensor(lidar):
     rcs = np.vstack((rs, cs, pzs, ds, prs)).T
     indices = np.where((rcs[:,0] < PHIn) & (rcs[:,0] >= PHI0) & (rcs[:, 1] < THETAn) & (rcs[:, 1] >= THETA0))[0]
     rcs = rcs[indices, :]
-    print('height,width,channel=%d,%d,%d'%(height,width,3))
     front = np.zeros(shape=(height,width,3), dtype=np.float32)
     # Initialize with the least height
     front[:, 0] = -1.73
@@ -469,7 +536,6 @@ def lidar_to_top_tensor(lidar):
                      & (q_lidar[:, 1] < Yn) & (q_lidar[:, 1] >= Y0) 
                      & (q_lidar[:, 2] < Zn) & (q_lidar[:, 2] >= Z0))[0]
     q_lidar = q_lidar[indices, :]
-    print('height,width,channel=%d,%d,%d'%(height,width,channel))
     top = np.zeros(shape=(height,width,channel), dtype=np.float32)
 
     for l in q_lidar:
@@ -543,7 +609,9 @@ if __name__ == '__main__':
         camera_df = pd.read_csv(_camera_csv).values
         lidar_df = pd.read_csv(_lidar_csv).values
 
-        for idx, po in enumerate(pose_objs):
+	indices = range(0, len(pose_objs))[::-1]
+        for idx in indices[500:1000]:
+	    po = pose_objs[idx]
             stem = str(camera_df[idx, 0])
             doc, objs = generate_xml(po, camera_df[idx], class_sets=class_sets, doncateothers=_doncateothers)
             img_file = os.path.join(_kittidir, camera_df[idx][4])
@@ -558,17 +626,22 @@ if __name__ == '__main__':
                 if _draw:
                     #top = _draw_on_image(top, objs, class_sets_dict)
                     front = _draw_on_image(front, objs, class_sets_dict, side=2)
-                cv2.imwrite(os.path.join(_dest_img_dir, stem + '_front.jpg'), front)
+                cv2.imwrite(os.path.join(_dest_img_dir, stem + '_front.png'), front)
             if 1:
                 _, top = lidar_to_top_tensor(lidar)
                 if _draw:
                     top = _draw_on_image(top, objs, class_sets_dict, side=1)
-                cv2.imwrite(os.path.join(_dest_img_dir, stem + '_top.jpg'), top)
+                cv2.imwrite(os.path.join(_dest_img_dir, stem + '_top.png'), top)
             if 1:
                 if _draw:
                     top = _draw_on_image(img, objs, class_sets_dict, side=0)
 
-            cv2.imwrite(os.path.join(_dest_img_dir, stem + '.jpg'), img)
+            if 0:
+                fig = mlab.figure(figure=None, bgcolor=(0,0,0), fgcolor=None, engine=None, size=(1000, 500))
+                draw_lidar(lidar, fig=fig)
+                mlab.show()
+
+            cv2.imwrite(os.path.join(_dest_img_dir, stem + '.png'), img)
 	    shutil.copyfile(lidar_file, dest_lidar_file)
             xmlfile = os.path.join(_dest_label_dir, stem + '.xml')
             with open(xmlfile, 'w') as f:

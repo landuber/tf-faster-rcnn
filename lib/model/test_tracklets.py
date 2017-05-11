@@ -253,7 +253,7 @@ def apply_nms(all_boxes, thresh):
       nms_boxes[cls_ind][im_ind] = dets[keep, :].copy()
   return nms_boxes
 
-def test_net(sess, net, num_classes, test_path, weights_filename, max_per_image=100, thresh=0.5):
+def test_net(sess, net, num_classes, test_path, weights_filename, max_per_image=100, thresh=1.0):
   
   _imagedir = os.path.join(test_path, 'JPEGImages')
   _lidardir = os.path.join(test_path, 'Lidar')

@@ -58,7 +58,7 @@ else
 fi
 set -x
 
-DATA_PATH=./kittivoc3d_test
+DATA_PATH=./udacity_test
 if [[ ! -z  ${EXTRA_ARGS_SLUG}  ]]; then
   CUDA_VISIBLE_DEVICES=${GPU_ID} time python ./tools/test_tracklets.py \
     --model ${NET_FINAL} \
