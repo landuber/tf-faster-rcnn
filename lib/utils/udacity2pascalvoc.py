@@ -15,8 +15,8 @@ import time
 
 TOP_Y_MIN=-40  #40
 TOP_Y_MAX=+40
-TOP_X_MIN=-70.4
-TOP_X_MAX=70.4   #70.4
+TOP_X_MIN=-80
+TOP_X_MAX= 80   #70.4
 TOP_Z_MIN=-1.73    ###<todo> determine the correct values!
 TOP_Z_MAX=0.67
 
@@ -188,7 +188,9 @@ def generate_xml(po, camera_info,
 
     difficult = 0 
     truncted = 0 
-    height, width, length = float(po['h']), float(po['w']), float(po['l'])
+    # 
+    length = width = max(float(po['l']), float(po['w']))
+    height = float(po['h'])
     x, y, z = float(po['tx']), float(po['ty']), float(po['tz'])
 
     velo_to_cam = np.array(TR_VELO_TO_CAM, dtype=np.float32)
@@ -610,7 +612,7 @@ if __name__ == '__main__':
         lidar_df = pd.read_csv(_lidar_csv).values
 
 	indices = range(0, len(pose_objs))[::-1]
-        for idx in indices[500:1000]:
+        for idx in indices:
 	    po = pose_objs[idx]
             stem = str(camera_df[idx, 0])
             doc, objs = generate_xml(po, camera_df[idx], class_sets=class_sets, doncateothers=_doncateothers)

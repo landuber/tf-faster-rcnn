@@ -70,75 +70,6 @@ class Network(object):
     
     return tf.summary.image(name, image)
 
-  def _add_fv_lidar_summary(self, lidar, boxes, name="fv_truth"):
-    image = lidar
-    boxes = tf.slice(boxes, [0, 0], [-1, 6])
-    boxes = tf.py_func(fv_projection_layer, [boxes], tf.float32)
-    boxes.set_shape([None, 4])
-    # dims for normalization
-    width  = tf.to_float(tf.shape(image)[2])
-    height = tf.to_float(tf.shape(image)[1])
-    # from [x1, y1, x2, y2, cls] to normalized [y1, x1, y1, x1]
-    cols = tf.unstack(boxes, axis=1)
-    boxes = tf.stack([cols[1] / height,
-                      cols[0] / width,
-                      cols[3] / height,
-                      cols[2] / width], axis=1)
-    # add batch dimension (assume batch_size==1)
-    assert image.get_shape()[0] == 1
-    boxes = tf.expand_dims(boxes, dim=0)
-    image = tf.image.draw_bounding_boxes(image, boxes)
-    
-    return tf.summary.image(name, image)
-
-  def _add_img_summary(self, image, boxes, name="img_truth"):
-    # add back mean
-    image += cfg.PIXEL_MEANS
-    boxes = tf.slice(boxes, [0, 0], [-1, 6])
-    boxes = tf.py_func(img_projection_layer, [boxes, self._image_info], tf.float32)
-    boxes.set_shape([None, 4])
-    # bgr to rgb (opencv uses bgr)
-    channels = tf.unstack (image, axis=-1)
-    image    = tf.stack ([channels[2], channels[1], channels[0]], axis=-1)
-    # dims for normalization
-    width  = tf.to_float(tf.shape(image)[2])
-    height = tf.to_float(tf.shape(image)[1])
-    # from [x1, y1, x2, y2, cls] to normalized [y1, x1, y1, x1]
-    cols = tf.unstack(boxes, axis=1)
-    boxes = tf.stack([cols[1] / height,
-                      cols[0] / width,
-                      cols[3] / height,
-                      cols[2] / width], axis=1)
-    # add batch dimension (assume batch_size==1)
-    assert image.get_shape()[0] == 1
-    boxes = tf.expand_dims(boxes, dim=0)
-    image = tf.image.draw_bounding_boxes(image, boxes)
-    
-    return tf.summary.image(name, image)
-
-  def _add_img_pred_summary(self, image, pred, rois, scores, name="pred"):
-    # add back mean
-    image += cfg.PIXEL_MEANS
-    boxes = tf.py_func(pred_projection_layer, [pred, rois, scores, self._image_info], tf.float32)
-    boxes.set_shape([None, 4])
-    # bgr to rgb (opencv uses bgr)
-    channels = tf.unstack (image, axis=-1)
-    image    = tf.stack ([channels[2], channels[1], channels[0]], axis=-1)
-    # dims for normalization
-    width  = tf.to_float(tf.shape(image)[2])
-    height = tf.to_float(tf.shape(image)[1])
-    # from [x1, y1, x2, y2, cls] to normalized [y1, x1, y1, x1]
-    cols = tf.unstack(boxes, axis=1)
-    boxes = tf.stack([cols[1] / height,
-                      cols[0] / width,
-                      cols[3] / height,
-                      cols[2] / width], axis=1)
-    # add batch dimension (assume batch_size==1)
-    assert image.get_shape()[0] == 1
-    boxes = tf.expand_dims(boxes, dim=0)
-    image = tf.image.draw_bounding_boxes(image, boxes)
-    
-    return tf.summary.image(name, image)
 
   def _add_act_summary(self, tensor):
     tf.summary.histogram('ACT/' + tensor.op.name + '/activations', tensor)
@@ -185,7 +116,7 @@ class Network(object):
   def _proposal_layer(self, rpn_cls_prob, rpn_bbox_pred, name):
     with tf.variable_scope(name) as scope:
       rois, rpn_scores = tf.py_func(proposal_layer,
-                                    [rpn_cls_prob, rpn_bbox_pred, self._top_lidar_info, self._image_info, self._mode,
+                                    [rpn_cls_prob, rpn_bbox_pred, self._top_lidar_info, self._mode,
                                      self._feat_stride, self._anchors, self._anchor_scales],
                                     [tf.float32, tf.float32])
       rois.set_shape([None, 7])
@@ -221,49 +152,6 @@ class Network(object):
     return slim.max_pool2d(crops, [2, 2], padding='SAME')
 
 
-  def _crop_pool_fv_layer(self, bottom, rois, name):
-    with tf.variable_scope(name) as scope:
-      rois_front = tf.slice(rois, [0, 1], [-1, 6])
-      rois_front = tf.py_func(fv_projection_layer, [rois_front], tf.float32)
-      rois_front.set_shape([None, 4])
-      batch_ids = tf.squeeze(tf.slice(rois, [0, 0], [-1, 1], name="batch_id"), [1])
-      # Get the normalized coordinates of bboxes
-      bottom_shape = tf.shape(bottom)
-      # account for the 4x upsampling 
-      height = (tf.to_float(bottom_shape[1]) - 1.) * np.float32(self._feat_stride[0] / 2.)
-      width = (tf.to_float(bottom_shape[2]) - 1.) * np.float32(self._feat_stride[0] / 2.)
-      x1 = tf.slice(rois_front, [0, 0], [-1, 1], name="x1") / width
-      y1 = tf.slice(rois_front, [0, 1], [-1, 1], name="y1") / height
-      x2 = tf.slice(rois_front, [0, 2], [-1, 1], name="x2") / width
-      y2 = tf.slice(rois_front, [0, 3], [-1, 1], name="y2") / height
-      # Won't be backpropagated to rois anyway, but to save time
-      bboxes = tf.stop_gradient(tf.concat([y1, x1, y2, x2], axis=1))
-      pre_pool_size = cfg.POOLING_SIZE * 2
-      crops = tf.image.crop_and_resize(bottom, bboxes, tf.to_int32(batch_ids), [pre_pool_size, pre_pool_size], name="crops")
-
-    return slim.max_pool2d(crops, [2, 2], padding='SAME')
-
-
-  def _crop_pool_img_layer(self, bottom, rois, name):
-    with tf.variable_scope(name) as scope:
-      rois_img = tf.slice(rois, [0, 1], [-1, 6])
-      rois_img = tf.py_func(img_projection_layer, [rois_img, self._image_info], tf.float32)
-      rois_img.set_shape([None, 4])
-      batch_ids = tf.squeeze(tf.slice(rois, [0, 0], [-1, 1], name="batch_id"), [1])
-      # Get the normalized coordinates of bboxes
-      bottom_shape = tf.shape(bottom)
-      height = (tf.to_float(bottom_shape[1]) - 1.) * np.float32(self._feat_stride[0])
-      width = (tf.to_float(bottom_shape[2]) - 1.) * np.float32(self._feat_stride[0])
-      x1 = tf.slice(rois_img, [0, 0], [-1, 1], name="x1") / width
-      y1 = tf.slice(rois_img, [0, 1], [-1, 1], name="y1") / height
-      x2 = tf.slice(rois_img, [0, 2], [-1, 1], name="x2") / width
-      y2 = tf.slice(rois_img, [0, 3], [-1, 1], name="y2") / height
-      # Won't be backpropagated to rois anyway, but to save time
-      bboxes = tf.stop_gradient(tf.concat([y1, x1, y2, x2], axis=1))
-      pre_pool_size = cfg.POOLING_SIZE * 2
-      crops = tf.image.crop_and_resize(bottom, bboxes, tf.to_int32(batch_ids), [pre_pool_size, pre_pool_size], name="crops")
-
-    return slim.max_pool2d(crops, [2, 2], padding='SAME')
 
   def _dropout_layer(self, bottom, name, ratio=0.5):
     return tf.nn.dropout(bottom, ratio, name=name)
@@ -272,7 +160,7 @@ class Network(object):
     with tf.variable_scope(name) as scope:
       rpn_labels, rpn_bbox_targets, rpn_bbox_inside_weights, rpn_bbox_outside_weights = tf.py_func(
         anchor_target_layer,
-        [rpn_cls_score, self._gt_boxes, self._top_lidar_info, self._image_info, self._feat_stride, self._anchors, self._anchor_scales],
+        [rpn_cls_score, self._gt_boxes, self._top_lidar_info, self._feat_stride, self._anchors, self._anchor_scales],
         [tf.float32, tf.float32, tf.float32, tf.float32])
 
       rpn_labels.set_shape([1, 1, None, None])
@@ -374,24 +262,6 @@ class Network(object):
         tf.nn.sparse_softmax_cross_entropy_with_logits(
           logits=tf.reshape(cls_score, [-1, self._num_classes]), labels=label))
 
-      # Aux1 class loss  
-      aux1_cls_score = self._predictions["aux1_cls_score"]
-      aux1_cross_entropy = tf.reduce_mean(
-        tf.nn.sparse_softmax_cross_entropy_with_logits(
-          logits=tf.reshape(aux1_cls_score, [-1, self._num_classes]), labels=label))
-      
-      # Aux2 class loss  
-      aux2_cls_score = self._predictions["aux2_cls_score"]
-      aux2_cross_entropy = tf.reduce_mean(
-        tf.nn.sparse_softmax_cross_entropy_with_logits(
-          logits=tf.reshape(aux2_cls_score, [-1, self._num_classes]), labels=label))
-
-
-      # Aux3 class loss  
-      aux3_cls_score = self._predictions["aux3_cls_score"]
-      aux3_cross_entropy = tf.reduce_mean(
-        tf.nn.sparse_softmax_cross_entropy_with_logits(
-          logits=tf.reshape(aux3_cls_score, [-1, self._num_classes]), labels=label))
 
 
       # RCNN, corner loss
@@ -403,21 +273,8 @@ class Network(object):
       loss_corner = self._smooth_l1_loss(corner_pred, corner_targets, corner_inside_weights, corner_outside_weights)
 
 
-      # Aux1 corner loss
-      aux1_corner_pred = self._predictions['aux1_corner_pred']
-      aux1_loss_corner = self._smooth_l1_loss(aux1_corner_pred, corner_targets, corner_inside_weights, corner_outside_weights)
-
-
-      # Aux2 corner loss
-      aux2_corner_pred = self._predictions['aux2_corner_pred']
-      aux2_loss_corner = self._smooth_l1_loss(aux2_corner_pred, corner_targets, corner_inside_weights, corner_outside_weights)
-
-      # Aux3 corner loss
-      aux3_corner_pred = self._predictions['aux3_corner_pred']
-      aux3_loss_corner = self._smooth_l1_loss(aux3_corner_pred, corner_targets, corner_inside_weights, corner_outside_weights)
-
-      self._losses['cross_entropy'] = tf.reduce_mean([cross_entropy, aux1_cross_entropy, aux2_cross_entropy, aux3_cross_entropy])
-      self._losses['loss_corner'] = tf.reduce_mean([loss_corner, aux1_loss_corner, aux2_loss_corner, aux3_loss_corner])
+      self._losses['cross_entropy'] = cross_entropy
+      self._losses['loss_corner'] = loss_corner
       self._losses['rpn_cross_entropy'] = rpn_cross_entropy
       self._losses['rpn_loss_box'] = rpn_loss_box
 
@@ -434,9 +291,6 @@ class Network(object):
     Zn = int((TOP_Z_MAX-TOP_Z_MIN)/TOP_Z_DIVISION)
     channel = Zn + 2
     self._top_lidar = tf.placeholder(tf.float32, shape=[self._batch_size, None, None, channel])
-    self._front_lidar = tf.placeholder(tf.float32, shape=[self._batch_size, None, None, 3])
-    self._image = tf.placeholder(tf.float32, shape=[self._batch_size, None, None, 3])
-    self._image_info = tf.placeholder(tf.float32, shape=[self._batch_size, 3])
     self._top_lidar_info = tf.placeholder(tf.float32, shape=[self._batch_size, 3])
     self._gt_boxes = tf.placeholder(tf.float32, shape=[None, 7])
     self._gt_corners = tf.placeholder(tf.float32, shape=[None, 8, 3])
@@ -480,26 +334,10 @@ class Network(object):
     val_summaries = []
     with tf.device("/cpu:0"):
       val_summaries.append(self._add_bv_lidar_summary(self._top_lidar, self._gt_boxes))
-      val_summaries.append(self._add_fv_lidar_summary(self._front_lidar, self._gt_boxes))
-      val_summaries.append(self._add_img_summary(self._image, self._gt_boxes))
-      #rois_label = self._proposal_targets['labels']
-      #rois_select = tf.where(tf.equal(rois_label, 1))
-      #rois = tf.reshape(tf.gather(self._predictions['rois'], rois_select), [-1, 7])
-      #rois = tf.slice(rois, [0, 1], [-1, 6])
 
       rois = tf.slice(self._predictions['rois'], [0, 1], [-1, 6])
       val_summaries.append(self._add_bv_lidar_summary(self._top_lidar, rois, name="rois_bv"))
-      val_summaries.append(self._add_fv_lidar_summary(self._front_lidar, rois, name="rois_fv"))
-      val_summaries.append(self._add_img_summary(self._image, rois, name="rois_img"))
 
-      scores = tf.nn.softmax(tf.reshape(self._predictions["cls_score"], [-1, self._num_classes]))
-      val_summaries.append(self._add_img_pred_summary(self._image
-          , self._predictions["corner_pred"]
-          , rois
-          , scores))
-      #val_summaries.append(self._add_bv_lidar_summary(self._top_lidar, self._anchors, name="anchors"))
-      #pre_rois = tf.slice(self._predictions["pre_rois"], [0, 1], [-1, 6])
-      #val_summaries.append(self._add_bv_lidar_summary(self._top_lidar, pre_rois, name="pre_rois_bv"))
       for key, var in self._event_summaries.items():
         val_summaries.append(tf.summary.scalar(key, var))
       for key, var in self._score_summaries.items():
@@ -523,8 +361,7 @@ class Network(object):
 
   # only useful during testing mode
   def test(self, sess, blobs):
-    feed_dict = {self._top_lidar: blobs['top_lidar'], self._front_lidar: blobs['front_lidar'], self._image: blobs['image'], \
-            self._image_info: blobs['im_info'], self._top_lidar_info: blobs['top_lidar_info']}
+    feed_dict = {self._top_lidar: blobs['top_lidar'], self._top_lidar_info: blobs['top_lidar_info']}
 
     cls_score, cls_prob, corner_pred, rois = sess.run([self._predictions["cls_score"],
                                                      self._predictions['cls_prob'],
@@ -534,18 +371,16 @@ class Network(object):
     return cls_score, cls_prob, corner_pred, rois
 
   def get_summary(self, sess, blobs):
-    feed_dict = {self._top_lidar: blobs['top_lidar'], self._front_lidar: blobs['front_lidar'], self._image: blobs['image'], \
-            self._image_info: blobs['im_info'], self._top_lidar_info: blobs['top_lidar_info'], self._gt_boxes: blobs['gt_boxes'], \
-            self._gt_corners: blobs['gt_corners']}
+    feed_dict = {self._top_lidar: blobs['top_lidar'], self._top_lidar_info: blobs['top_lidar_info'], self._gt_boxes: blobs['gt_boxes'], \
+                 self._gt_corners: blobs['gt_corners']}
 
     summary = sess.run(self._summary_op_val, feed_dict=feed_dict)
 
     return summary
 
   def train_step(self, sess, blobs, train_op):
-    feed_dict = {self._top_lidar: blobs['top_lidar'], self._front_lidar: blobs['front_lidar'], self._image: blobs['image'], \
-            self._image_info: blobs['im_info'], self._top_lidar_info: blobs['top_lidar_info'], self._gt_boxes: blobs['gt_boxes'], \
-            self._gt_corners: blobs['gt_corners']}
+    feed_dict = {self._top_lidar: blobs['top_lidar'], self._top_lidar_info: blobs['top_lidar_info'], self._gt_boxes: blobs['gt_boxes'], \
+                 self._gt_corners: blobs['gt_corners']}
     rpn_loss_cls, rpn_loss_box, loss_cls, loss_corner, loss, _ = sess.run([self._losses["rpn_cross_entropy"],
                                                                         self._losses['rpn_loss_box'],
                                                                         self._losses['cross_entropy'],
@@ -556,9 +391,8 @@ class Network(object):
     return rpn_loss_cls, rpn_loss_box, loss_cls, loss_corner, loss
 
   def train_step_with_summary(self, sess, blobs, train_op):
-    feed_dict = {self._top_lidar: blobs['top_lidar'], self._front_lidar: blobs['front_lidar'], self._image: blobs['image'], \
-            self._image_info: blobs['im_info'], self._top_lidar_info: blobs['top_lidar_info'], self._gt_boxes: blobs['gt_boxes'], \
-            self._gt_corners: blobs['gt_corners']}
+    feed_dict = {self._top_lidar: blobs['top_lidar'], self._top_lidar_info: blobs['top_lidar_info'], self._gt_boxes: blobs['gt_boxes'], \
+                 self._gt_corners: blobs['gt_corners']}
     rpn_loss_cls, rpn_loss_box, loss_cls, loss_corner, loss, summary, _ = sess.run([self._losses["rpn_cross_entropy"],
                                                                                  self._losses['rpn_loss_box'],
                                                                                  self._losses['cross_entropy'],
@@ -570,8 +404,7 @@ class Network(object):
     return rpn_loss_cls, rpn_loss_box, loss_cls, loss_corner, loss, summary
 
   def train_step_no_return(self, sess, blobs, train_op):
-    feed_dict = {self._top_lidar: blobs['top_lidar'], self._front_lidar: blobs['front_lidar'], self._image: blobs['image'], \
-            self._image_info: blobs['im_info'], self._top_lidar_info: blobs['top_lidar_info'], self._gt_boxes: blobs['gt_boxes'], \
-            self._gt_corners: blobs['gt_corners']}
+    feed_dict = {self._top_lidar: blobs['top_lidar'], self._top_lidar_info: blobs['top_lidar_info'], self._gt_boxes: blobs['gt_boxes'], \
+                 self._gt_corners: blobs['gt_corners']}
     sess.run([train_op], feed_dict=feed_dict)
 

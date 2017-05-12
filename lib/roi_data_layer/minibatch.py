@@ -30,12 +30,10 @@ def get_minibatch(roidb, num_classes):
     format(num_images, cfg.TRAIN.BATCH_SIZE)
 
   # Get the input image blob, formatted for caffe
-  im_blob, im_scales = _get_image_blob(roidb, random_scale_inds)
   top_lidar_blob, front_lidar_blob = _get_lidar_blob(roidb)
 
-  blobs = {'image': im_blob, 'top_lidar': top_lidar_blob, 'front_lidar': front_lidar_blob}
+  blobs = {'top_lidar': top_lidar_blob}
 
-  assert len(im_scales) == 1, "Single batch only"
   assert len(roidb) == 1, "Single batch only"
   
   # gt boxes: (x1, y1, x2, y2, cls)
@@ -45,27 +43,17 @@ def get_minibatch(roidb, num_classes):
   else:
     # For the COCO ground truth boxes, exclude the ones that are ''iscrowd'' 
     gt_inds = np.where(roidb[0]['gt_classes'] != 0 & np.all(roidb[0]['gt_overlaps'].toarray() > -1.0, axis=1))[0]
-  #gt_boxes = np.empty((len(gt_inds), 5), dtype=np.float32)
-  #gt_boxes[:, 0:4] = roidb[0]['boxes'][gt_inds, :] * im_scales[0]
-  #gt_boxes[:, 4] = roidb[0]['gt_classes'][gt_inds]
   gt_boxes = np.empty((len(gt_inds), 7), dtype=np.float32)
   gt_boxes[:, 0:6] = roidb[0]['top_boxes'][gt_inds, :]
   gt_boxes[:, 6] = roidb[0]['gt_classes'][gt_inds]
 
   gt_corners = np.empty((len(gt_inds), 8, 3), dtype=np.float32)
   gt_corners[:, :, :] = roidb[0]['lidar_boxes'][gt_inds, :]
-  #blobs['gt_boxes'] = gt_boxes
   blobs['roidb_id'] = roidb[0]['roidb_id']
   blobs['gt_boxes'] = gt_boxes
   blobs['gt_corners'] = gt_corners
-  blobs['im_info'] = np.array(
-    [[im_blob.shape[1], im_blob.shape[2], im_scales[0]]],
-    dtype=np.float32)
   blobs['top_lidar_info'] = np.array(
     [[top_lidar_blob.shape[1], top_lidar_blob.shape[2], top_lidar_blob.shape[3]]],
-    dtype=np.float32)
-  blobs['front_lidar_info'] = np.array(
-    [[front_lidar_blob.shape[1], front_lidar_blob.shape[2], front_lidar_blob.shape[3]]],
     dtype=np.float32)
 
   return blobs

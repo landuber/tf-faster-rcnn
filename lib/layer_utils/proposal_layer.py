@@ -13,7 +13,7 @@ from model.nms_wrapper import nms
 from model.boxes3d import *
 
 
-def proposal_layer(rpn_cls_prob, rpn_bbox_pred, lidar_info, image_info, cfg_key, _feat_stride, anchors, anchor_scales):
+def proposal_layer(rpn_cls_prob, rpn_bbox_pred, lidar_info, cfg_key, _feat_stride, anchors, anchor_scales):
   """A simplified version compared to fast/er RCNN
      For details please see the technical report
   """
@@ -50,8 +50,6 @@ def proposal_layer(rpn_cls_prob, rpn_bbox_pred, lidar_info, image_info, cfg_key,
   proposals = proposals[keep, :]
   scores = scores[keep]
 
-
-  keep = filter_rois(proposals, image_info)
   proposals = proposals[keep, :]
   scores = scores[keep]
 

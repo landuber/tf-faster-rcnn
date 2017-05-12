@@ -3,8 +3,8 @@ import math
 
 TOP_Y_MIN=-40  #40
 TOP_Y_MAX=+40
-TOP_X_MIN=0
-TOP_X_MAX=70.4   #70.4
+TOP_X_MIN=-80
+TOP_X_MAX= 80   #70.4
 TOP_Z_MIN=-1.73    ###<todo> determine the correct values!
 TOP_Z_MAX=0.67
 
@@ -16,13 +16,11 @@ TOP_Z_DIVISION=0.1
 HORIZONTAL_FOV = math.pi
 HORIZONTAL_MAX = HORIZONTAL_FOV
 HORIZONTAL_MIN = 0.0
-VERTICAL_FOV = math.pi * 26.8 / 180
-VERTICAL_MAX = VERTICAL_FOV / 2
-VERTICAL_MIN = -VERTICAL_FOV / 2
-HORIZONTAL_RESOLUTION = HORIZONTAL_FOV/512 #
-VERTICAL_RESOLUTION = VERTICAL_FOV / 64 # 26.8 / 64
-
-ANCHOR_DEPTH = int(1.56/TOP_Z_DIVISION)
+VERTICAL_FOV = math.pi * 41.33 / 180
+VERTICAL_MAX = math.pi * 10.67 / 180
+VERTICAL_MIN = -math.pi * 30.67 / 180
+HORIZONTAL_RESOLUTION = HORIZONTAL_FOV / 512 #
+VERTICAL_RESOLUTION = VERTICAL_FOV / 128 # 41.33 / 32
 
 TR_VELO_TO_CAM = ([[ 0.                , -1.                ,  0.                ,  0.                ],
                    [ 0.                ,  0.                , -1.                ,  3.300000000000e-01],

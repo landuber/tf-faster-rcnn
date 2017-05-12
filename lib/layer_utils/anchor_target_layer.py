@@ -15,7 +15,7 @@ from utils.cython_bbox import bbox_overlaps
 from model.bbox_transform import bbox_transform
 
 
-def anchor_target_layer(rpn_cls_score, gt_boxes, lidar_info, img_info, _feat_stride, all_anchors, anchor_scales):
+def anchor_target_layer(rpn_cls_score, gt_boxes, lidar_info, _feat_stride, all_anchors, anchor_scales):
   """Same as the anchor target layer in original Fast/er RCNN """
   scales = np.array(anchor_scales)
   num_anchors = scales.shape[0] * 3

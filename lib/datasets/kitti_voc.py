@@ -229,8 +229,6 @@ class kitti_voc(imdb):
 
         # Load object bounding boxes into a data frame.
         for ix, obj in enumerate(objs):
-            bbox = obj.find('bndbox')
-            dim =  obj.find('dimensions')
             loc = obj.find('location')
 
             # Find all corners
@@ -242,11 +240,6 @@ class kitti_voc(imdb):
                                   float(cr.find('z').text)]
             top_box = corners_from_box(lidar_box_to_top_box(lidarb))
 
-            # Make pixel indexes 0-based
-            x1 = max(float(bbox.find('xmin').text) - 1, 0)
-            y1 = max(float(bbox.find('ymin').text) - 1, 0)
-            x2 = float(bbox.find('xmax').text) - 1
-            y2 = float(bbox.find('ymax').text) - 1
             # Load dimensions
             height = float(dim.find('height').text)
             width = float(dim.find('width').text)
@@ -255,61 +248,41 @@ class kitti_voc(imdb):
             xp = float(loc.find('x').text)
             yp = float(loc.find('y').text)
             zp = float(loc.find('z').text)
-            # Load y rotation
-            rot_y = float(obj.find('rotation_y').text)
 
-            diffc = obj.find('difficult')
-            difficult = 0 if diffc == None else int(diffc.text)
-            ishards[ix] = difficult
 
             class_name = obj.find('name').text.lower().strip()
             if class_name != 'dontcare':
                 care_inds = np.append(care_inds, np.asarray([ix], dtype=np.int32))
             if class_name == 'dontcare':
                 dontcare_inds = np.append(dontcare_inds, np.asarray([ix], dtype=np.int32))
-                boxes[ix, :] = [x1, y1, x2, y2]
                 top_boxes[ix, :] = top_box
                 lidar_boxes[ix, :, :] = lidarb
-                dimensions[ix, :] = [height, width, length]
                 locations[ix, :] = [xp, yp, zp]
-                rotations_y[ix] = rot_y
                 continue
             cls = self._class_to_ind[class_name]
-            boxes[ix, :] = [x1, y1, x2, y2]
             top_boxes[ix, :] = top_box
             lidar_boxes[ix, :, :] = lidarb
-            dimensions[ix, :] = [height, width, length]
             locations[ix, :] = [xp, yp, zp]
-            rotations_y[ix] = rot_y
             gt_classes[ix] = cls
             overlaps[ix, cls] = 1.0
-            seg_areas[ix] = (x2 - x1 + 1) * (y2 - y1 + 1)
 
         # deal with dontcare areas
         dontcare_areas = boxes[dontcare_inds, :]
-        boxes = boxes[care_inds, :]
         top_boxes = top_boxes[care_inds, :]
         lidar_boxes = lidar_boxes[care_inds, :]
-        dimensions = dimensions[care_inds, :]
         locations = locations[care_inds, :]
-        rotations_y = rotations_y[care_inds]
         gt_classes = gt_classes[care_inds]
         overlaps = overlaps[care_inds, :]
-        seg_areas = seg_areas[care_inds]
-        ishards = ishards[care_inds]
 
         overlaps = scipy.sparse.csr_matrix(overlaps)
 
         return {'roidb_id': index,
-                'boxes' : boxes,
                 'top_boxes': top_boxes,
                 'lidar_boxes': lidar_boxes,
                 'gt_classes': gt_classes,
-                'gt_ishard' : ishards,
                 'dontcare_areas' : dontcare_areas,
                 'gt_overlaps' : overlaps,
-                'flipped' : False,
-                'seg_areas' : seg_areas}
+                'flipped' : False}
 
   def _get_comp_id(self):
     comp_id = (self._comp_id + '_' + self._salt if self.config['use_salt']
