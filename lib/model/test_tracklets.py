@@ -161,6 +161,19 @@ def _get_image_blob(im):
 
   return blob, im_scale_factors
 
+def _draw_on_image(im, corners):
+  for i in range(corners.shape[0]):
+    points = np.zeros((corners[i, :].shape[0], 2), dtype=np.float32)
+    for k in range(corners[i, :].shape[0]):
+      point_x, point_y = lidar_to_top_coords(corners[i, k, 0],
+				       corners[i, k, 1],
+				       corners[i, k, 2])
+      points[k, :] = [point_x, point_y]
+    x1, y1 = points.min(axis=0)
+    x2, y2 = points.max(axis=0)
+    cv2.rectangle(im, (int(x1), int(y1)), (int(x2), int(y2)), (173, 223, 48), 1)
+  return im
+
 
 def _clip_boxes(boxes, im_shape):
   """Clip boxes to image boundaries."""
@@ -181,22 +194,15 @@ def _rescale_boxes(boxes, inds, scales):
 
   return boxes
 
-def im_detect(sess, net, im, lidar_path):
-  im_blob, im_scales = _get_image_blob(im)
+def im_detect(sess, net, lidar_path):
   top_lidar_blob, front_lidar_blob = _get_lidar_blob(lidar_path)
   assert len(im_scales) == 1, "Only single-image batch implemented"
 
-  blobs = {'image': im_blob, 'top_lidar': top_lidar_blob, 'front_lidar': front_lidar_blob}
+  blobs = {'top_lidar': top_lidar_blob}
   # seems to have height, width, and image scales
   # still not sure about the scale, maybe full image it is 1.
-  blobs['im_info'] = np.array(
-    [[im_blob.shape[1], im_blob.shape[2], im_scales[0]]],
-    dtype=np.float32)
   blobs['top_lidar_info'] = np.array(
     [[top_lidar_blob.shape[1], top_lidar_blob.shape[2], top_lidar_blob.shape[3]]],
-    dtype=np.float32)
-  blobs['front_lidar_info'] = np.array(
-    [[front_lidar_blob.shape[1], front_lidar_blob.shape[2], front_lidar_blob.shape[3]]],
     dtype=np.float32)
 
   _, scores, corner_pred, rois = net.test(sess, blobs)
@@ -242,34 +248,31 @@ def apply_nms(all_boxes, thresh):
 
 def test_net(sess, net, test_path, weights_filename, max_per_image=100, thresh=0.05):
   
-  _imagedir = os.path.join(test_path, 'JPEGImages')
   _lidardir = os.path.join(test_path, 'Lidar')
 
-  img_files = glob.glob(os.path.join(_imagedir, '*.jpg'))
   lidar_files = glob.glob(os.path.join(_lidardir, '*.bin'))  
 
   img_files.sort()
   lidar_files.sort()
   np.random.seed(cfg.RNG_SEED)
   """Test a Fast R-CNN network on an image database."""
-  num_images = len(img_files)
+  num_lidars = len(lidar_files)
   # all detections are collected into:
   #  all_boxes[cls][image] = N x 25 array of detections in
   #  (x1, y1, z1, x2, y2, z2,....., score)
-  all_corners = [[[] for _ in range(num_images)]
+  all_corners = [[[] for _ in range(num_lidars)]
          for _ in range(num_classes)]
 
   output_dir = get_output_tracklets_dir('TRACKLET_TEST', weights_filename)
   # timers
   _t = {'im_detect' : Timer(), 'misc' : Timer()}
 
-  for i, file in enumerate(img_files):
+  for i, file in enumerate(lidar_files):
     path, basename = os.path.splite(file)
     stem, ext = os.path.splitext(basename)
-    im = cv2.imread(imdb.image_path_at(file))
 
     _t['im_detect'].tic()
-    scores, corners = im_detect(sess, net, im, lidar_files[i])
+    scores, corners = im_detect(sess, net, lidar_files[i])
     _t['im_detect'].toc()
 
     _t['misc'].tic()
@@ -286,21 +289,27 @@ def test_net(sess, net, test_path, weights_filename, max_per_image=100, thresh=0
       #todo: add 3D NMS
       keep = nms_3d(cls_dets, cfg.TEST.NMS)
       cls_dets = cls_dets[keep, :]
+      lidar = np.fromfile(file, dtype=np.float32)
+      lidar = lidar.reshape((-1, 4))
+      _, lidar_img = lidar_to_top_tensor(lidar)
+      lidar_img = _draw_on_image(lidar_image, corners[inds, j, :])
+      det_lidar = os.path.join(output_dir, basename + '.png')
+      cv2.imwrite(det_lidar, lidar_img)
       all_corners[j][i] = cls_dets
 
     # Limit to max_per_image detections *over all classes*
     if max_per_image > 0:
-      image_scores = np.hstack([all_corners[j][i][:, -1]
+      lidar_scores = np.hstack([all_corners[j][i][:, -1]
                     for j in range(1, num_classes)])
-      if len(image_scores) > max_per_image:
-        image_thresh = np.sort(image_scores)[-max_per_image]
+      if len(lidar_scores) > max_per_image:
+        lidar_thresh = np.sort(lidar_scores)[-max_per_image]
         for j in range(1, num_classes):
-          keep = np.where(all_corners[j][i][:, -1] >= image_thresh)[0]
+          keep = np.where(all_corners[j][i][:, -1] >= lidar_thresh)[0]
           all_corners[j][i] = all_corners[j][i][keep, :]
     _t['misc'].toc()
 
     print('im_detect: {:d}/{:d} {:.3f}s {:.3f}s' \
-        .format(i + 1, num_images, _t['im_detect'].average_time,
+        .format(i + 1, num_lidars, _t['im_detect'].average_time,
             _t['misc'].average_time))
 
   det_file = os.path.join(output_dir, 'detections.pkl')
