@@ -244,10 +244,6 @@ class kitti_voc(imdb):
             height = float(dim.find('height').text)
             width = float(dim.find('width').text)
             length = float(dim.find('length').text)
-            # Load pose
-            xp = float(loc.find('x').text)
-            yp = float(loc.find('y').text)
-            zp = float(loc.find('z').text)
 
 
             class_name = obj.find('name').text.lower().strip()
@@ -257,12 +253,10 @@ class kitti_voc(imdb):
                 dontcare_inds = np.append(dontcare_inds, np.asarray([ix], dtype=np.int32))
                 top_boxes[ix, :] = top_box
                 lidar_boxes[ix, :, :] = lidarb
-                locations[ix, :] = [xp, yp, zp]
                 continue
             cls = self._class_to_ind[class_name]
             top_boxes[ix, :] = top_box
             lidar_boxes[ix, :, :] = lidarb
-            locations[ix, :] = [xp, yp, zp]
             gt_classes[ix] = cls
             overlaps[ix, cls] = 1.0
 
@@ -270,7 +264,6 @@ class kitti_voc(imdb):
         dontcare_areas = boxes[dontcare_inds, :]
         top_boxes = top_boxes[care_inds, :]
         lidar_boxes = lidar_boxes[care_inds, :]
-        locations = locations[care_inds, :]
         gt_classes = gt_classes[care_inds]
         overlaps = overlaps[care_inds, :]
 
