@@ -25,7 +25,7 @@ case ${DATASET} in
     TRAIN_IMDB="kitti3d_train"
     TEST_IMDB="kitti3d_test"
     STEPSIZE=80000
-    ITERS=120000
+    ITERS=70000
     ANCHORS="[8,16,32]"
     ;;
   pascal_voc_0712)
@@ -58,7 +58,7 @@ else
 fi
 set -x
 
-DATA_PATH=./udacity_test
+DATA_PATH=./data/RoundOneTest
 if [[ ! -z  ${EXTRA_ARGS_SLUG}  ]]; then
   CUDA_VISIBLE_DEVICES=${GPU_ID} time python ./tools/test_tracklets.py \
     --model ${NET_FINAL} \

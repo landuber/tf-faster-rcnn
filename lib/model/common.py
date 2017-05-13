@@ -20,7 +20,9 @@ VERTICAL_FOV = math.pi * 41.33 / 180
 VERTICAL_MAX = math.pi * 10.67 / 180
 VERTICAL_MIN = -math.pi * 30.67 / 180
 HORIZONTAL_RESOLUTION = HORIZONTAL_FOV / 512 #
-VERTICAL_RESOLUTION = VERTICAL_FOV / 128 # 41.33 / 32
+VERTICAL_RESOLUTION = VERTICAL_FOV / 32 # 41.33 / 32
+
+ANCHOR_DEPTH = int(1.56/TOP_Z_DIVISION)
 
 TR_VELO_TO_CAM = ([[ 0.                , -1.                ,  0.                ,  0.                ],
                    [ 0.                ,  0.                , -1.                ,  3.300000000000e-01],

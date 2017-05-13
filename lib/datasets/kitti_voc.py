@@ -240,12 +240,6 @@ class kitti_voc(imdb):
                                   float(cr.find('z').text)]
             top_box = corners_from_box(lidar_box_to_top_box(lidarb))
 
-            # Load dimensions
-            height = float(dim.find('height').text)
-            width = float(dim.find('width').text)
-            length = float(dim.find('length').text)
-
-
             class_name = obj.find('name').text.lower().strip()
             if class_name != 'dontcare':
                 care_inds = np.append(care_inds, np.asarray([ix], dtype=np.int32))

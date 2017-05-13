@@ -22,9 +22,10 @@ from utils.boxes_grid import get_boxes_grid
 from utils.blob import prep_im_for_blob, im_list_to_blob, lidar_list_to_blob
 
 from model.common import *
-from model.config import cfg, get_output_dir
+from model.config import cfg, get_output_tracklets_dir
 from model.bbox_transform import corner_transform_inv
 from model.boxes3d import *
+from model.bbox_transform import corner_transform_inv
 
 
 def _get_lidar_blob(lidar_path):
@@ -34,11 +35,8 @@ def _get_lidar_blob(lidar_path):
   processed_lidars = []
   lidar = np.fromfile(lidar_path, dtype=np.float32)
   lidar = lidar.reshape((-1, 4))
-  front_lidar = np.empty_like(lidar)
-  front_lidar[:] = lidar
   top_lidar = lidar_to_top_tensor(lidar)
-  front_lidar = lidar_to_front_tensor(front_lidar)
-  processed_lidars.append((top_lidar, front_lidar))
+  processed_lidars.append(top_lidar)
 
   # Create a blob to hold the input images
   return lidar_list_to_blob(processed_lidars)
@@ -79,7 +77,13 @@ def lidar_to_top_tensor(lidar):
     top[:,:,Zn+1] = np.log(top[:,:,Zn+1]+1)/math.log(64)
 
 
-    return top
+    if 1:
+        top_image = np.sum(top,axis=2)
+        top_image = top_image-np.min(top_image)
+        top_image = (top_image/np.max(top_image)*255)
+        top_image = np.dstack((top_image, top_image, top_image)).astype(np.uint8)
+
+    return top, top_image
 
 def lidar_to_front_tensor(lidar):
     THETA0,THETAn = 0, int((HORIZONTAL_MAX-HORIZONTAL_MIN)/HORIZONTAL_RESOLUTION)
@@ -194,9 +198,8 @@ def _rescale_boxes(boxes, inds, scales):
 
   return boxes
 
-def im_detect(sess, net, lidar_path):
+def im_detect(sess, net, lidar_path, num_classes):
   top_lidar_blob, front_lidar_blob = _get_lidar_blob(lidar_path)
-  assert len(im_scales) == 1, "Only single-image batch implemented"
 
   blobs = {'top_lidar': top_lidar_blob}
   # seems to have height, width, and image scales
@@ -213,7 +216,7 @@ def im_detect(sess, net, lidar_path):
   corner_pred = np.reshape(corner_pred, [corner_pred.shape[0], -1])
   # Apply bounding-box regression deltas
   corner_deltas = corner_pred
-  _, pred_corners = corner_transform_inv(corners, box_deltas)
+  _, pred_corners = corner_transform_inv(corners, corner_deltas, num_classes)
 
   return scores, pred_corners
 
@@ -246,13 +249,12 @@ def apply_nms(all_boxes, thresh):
       nms_boxes[cls_ind][im_ind] = dets[keep, :].copy()
   return nms_boxes
 
-def test_net(sess, net, test_path, weights_filename, max_per_image=100, thresh=0.05):
+def test_net(sess, net, num_classes, test_path, weights_filename, max_per_image=100, thresh=0.1):
   
   _lidardir = os.path.join(test_path, 'Lidar')
 
   lidar_files = glob.glob(os.path.join(_lidardir, '*.bin'))  
 
-  img_files.sort()
   lidar_files.sort()
   np.random.seed(cfg.RNG_SEED)
   """Test a Fast R-CNN network on an image database."""
@@ -268,11 +270,11 @@ def test_net(sess, net, test_path, weights_filename, max_per_image=100, thresh=0
   _t = {'im_detect' : Timer(), 'misc' : Timer()}
 
   for i, file in enumerate(lidar_files):
-    path, basename = os.path.splite(file)
+    path, basename = os.path.split(file)
     stem, ext = os.path.splitext(basename)
 
     _t['im_detect'].tic()
-    scores, corners = im_detect(sess, net, lidar_files[i])
+    scores, corners = im_detect(sess, net, lidar_files[i], num_classes)
     _t['im_detect'].toc()
 
     _t['misc'].tic()
@@ -292,7 +294,7 @@ def test_net(sess, net, test_path, weights_filename, max_per_image=100, thresh=0
       lidar = np.fromfile(file, dtype=np.float32)
       lidar = lidar.reshape((-1, 4))
       _, lidar_img = lidar_to_top_tensor(lidar)
-      lidar_img = _draw_on_image(lidar_image, corners[inds, j, :])
+      lidar_img = _draw_on_image(lidar_img, corners[inds, j, :])
       det_lidar = os.path.join(output_dir, basename + '.png')
       cv2.imwrite(det_lidar, lidar_img)
       all_corners[j][i] = cls_dets

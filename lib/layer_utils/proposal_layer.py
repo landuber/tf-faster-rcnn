@@ -50,9 +50,6 @@ def proposal_layer(rpn_cls_prob, rpn_bbox_pred, lidar_info, cfg_key, _feat_strid
   proposals = proposals[keep, :]
   scores = scores[keep]
 
-  proposals = proposals[keep, :]
-  scores = scores[keep]
-
 
   # Only support single image as input
   batch_inds = np.zeros((proposals.shape[0], 1), dtype=np.float32)

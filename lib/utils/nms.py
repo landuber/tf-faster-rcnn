@@ -39,7 +39,7 @@ def nms(dets, thresh):
 def nms_3d(dets, thresh):
     scores = dets[:, 24]
     dets = dets[:, :24].reshape(-1, 8, 3)
-    dets = np.hstack(dets.min(axis=1), dets.max(axis=1))
+    dets = np.hstack((dets.min(axis=1), dets.max(axis=1)))
     x1 = dets[:, 0]
     y1 = dets[:, 1]
     x2 = dets[:, 3]
