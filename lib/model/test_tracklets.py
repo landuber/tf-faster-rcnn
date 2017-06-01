@@ -283,6 +283,7 @@ def interpolate_lidar_to_camera(img_files, lidar_files):
   paths = pd.Series(arr).replace(-1, np.nan).interpolate(method='nearest').ffill().bfill().astype('category').cat.rename_categories(cat).astype('str')
   paths = paths.to_frame()
   paths.set_index(merged.index, inplace=True)
+  paths = paths.loc[img_df.index]
   return paths.values.T[0]
 
 

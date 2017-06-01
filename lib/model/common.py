@@ -1,8 +1,8 @@
 #### kitti dataset orijection from lidar to top, front and rgb ####
 import math
 
-TOP_Y_MIN=-40  #40
-TOP_Y_MAX=+40
+TOP_Y_MIN=-80  #40
+TOP_Y_MAX=+80
 TOP_X_MIN=-80
 TOP_X_MAX= 80   #70.4
 TOP_Z_MIN=-1.73    ###<todo> determine the correct values!
