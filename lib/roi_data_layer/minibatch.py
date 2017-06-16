@@ -10,6 +10,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import sys
 import numpy as np
 import math
 import numpy.random as npr
@@ -80,6 +81,8 @@ def _get_lidar_blob(roidb):
   return lidar_list_to_blob(processed_lidars)
 
 
+
+
 def lidar_to_top_tensor(lidar):
     X0, Xn = 0, int((TOP_X_MAX-TOP_X_MIN)/TOP_X_DIVISION)
     Y0, Yn = 0, int((TOP_Y_MAX-TOP_Y_MIN)/TOP_Y_DIVISION)
@@ -98,39 +101,48 @@ def lidar_to_top_tensor(lidar):
     qzs=((pzs-TOP_Z_MIN)/TOP_Z_DIVISION).astype(np.int32)
 
     q_lidar = np.vstack((qxs, qys, qzs, pzs, prs)).T
-    indices = np.where((q_lidar[:,0] < Xn) & (q_lidar[:,0] >= X0) & (q_lidar[:, 1] < Yn) & (q_lidar[:, 1] >= Y0) & (q_lidar[:,2] < Zn) & (q_lidar[:,2] >= Z0))[0]
+    # constrain it to the box
+    indices = np.where((q_lidar[:, 0] < Xn) & (q_lidar[:, 0] >= X0) 
+                     & (q_lidar[:, 1] < Yn) & (q_lidar[:, 1] >= Y0) 
+                     & (q_lidar[:, 2] < Zn) & (q_lidar[:, 2] >= Z0))[0]
     q_lidar = q_lidar[indices, :]
-    #print('height,width,channel=%d,%d,%d'%(height,width,channel))
     top = np.zeros(shape=(height,width,channel), dtype=np.float32)
+    min_height = pzs.min() 
+
+    indices = q_lidar.astype(np.int)
+    indices[:, 0] *= -1
+    indices[:, 1] *= -1
+    top[indices[:, 0], indices[:,1], indices[:,2]] = -sys.float_info.max
 
     for l in q_lidar:
         yy,xx,zz = -int(l[0]-X0),-int(l[1]-Y0),int(l[2]-Z0)
-        height = max(0,l[3]-TOP_Z_MIN)
+	# height in meters of the lidar point
+        height = max(min_height, l[3])
+        #height = l[3]
         top[yy,xx,Zn+1] = top[yy,xx,Zn+1] + 1
         if top[yy, xx, zz] < height:
             top[yy,xx,zz] = height
-        if top[yy, xx, Zn] < l[4]:
-            top[yy,xx,Zn] = l[4]
+	    top[yy,xx,Zn] = l[4]
 
-    top[:,:,Zn+1] = np.log(top[:,:,Zn+1]+1)/math.log(64)
-
+    top[:,:,Zn+1] = np.minimum(1., np.log(top[:,:,Zn+1]+1)/np.log(32))
 
     return top
+
 
 def lidar_to_front_tensor(lidar):
     THETA0,THETAn = 0, int((HORIZONTAL_MAX-HORIZONTAL_MIN)/HORIZONTAL_RESOLUTION)
     PHI0, PHIn = 0, int((VERTICAL_MAX-VERTICAL_MIN)/VERTICAL_RESOLUTION)
-    indices = np.where((lidar[:, 0] > 0.0))[0]
+    #indices = np.where((lidar[:, 0] > 0.0))[0]
 
     width = THETAn - THETA0
     height = PHIn - PHI0
 
-    pxs=lidar[indices,0]
-    pys=lidar[indices,1]
-    pzs=lidar[indices,2]
-    prs=lidar[indices,3]
+    pxs=lidar[:,0]
+    pys=lidar[:,1]
+    pzs=lidar[:,2]
+    prs=lidar[:,3]
 
-    cs = ((np.arctan2(pxs, -pys) - HORIZONTAL_MIN) / HORIZONTAL_RESOLUTION).astype(np.int32)
+    cs = ((np.absolute(np.arctan2(pxs, -pys)) - HORIZONTAL_MIN) / HORIZONTAL_RESOLUTION).astype(np.int32)
     rs = ((np.arctan2(pzs, np.hypot(pxs, pys)) - VERTICAL_MIN) / VERTICAL_RESOLUTION).astype(np.int32)
     ds = np.hypot(pxs, pys)
 
@@ -138,8 +150,8 @@ def lidar_to_front_tensor(lidar):
     rcs = np.vstack((rs, cs, pzs, ds, prs)).T
     indices = np.where((rcs[:,0] < PHIn) & (rcs[:,0] >= PHI0) & (rcs[:, 1] < THETAn) & (rcs[:, 1] >= THETA0))[0]
     rcs = rcs[indices, :]
-    front = np.zeros(shape=(height,width,3), dtype=np.float32)
-    front[:, 0] = -1.73
+    front = np.ones(shape=(height,width,3), dtype=np.float32) * -sys.float_info.max
+    front[:, :, 1:3] = 0.0
 
     for rc in rcs:
         yy, xx = -int(rc[0] - PHI0), -int(rc[1] - THETA0) 
@@ -153,14 +165,9 @@ def lidar_to_front_tensor(lidar):
         if front[yy,xx,2] < rc[4]:
             front[yy,xx,2] = rc[4]
 
-    front[:, :, 0] = front[:, :, 0]-np.min(front[:, :, 0])
-    front[:, :, 0] = (front[:, :, 0]/np.max(front[:, :, 0])*255).astype(np.uint8)
-    front[:, :, 1] = front[:, :, 1]-np.min(front[:, :, 1])
-    front[:, :, 1] = (front[:, :, 1]/np.max(front[:, :, 1])*255).astype(np.uint8)
-    front[:, :, 2] = front[:, :, 2]-np.min(front[:, :, 2])
-    front[:, :, 2] = (front[:, :, 2]/np.max(front[:, :, 2])*255).astype(np.uint8)
-    front = np.dstack((front[:,:, 0], front[:,:, 1], front[:,:, 2])).astype(np.uint8)
-        
+    indices = np.where(front == -sys.float_info.max)
+    front[indices[0], indices[1], indices[2]] = 0.0
+
     return front
 
 def _get_image_blob(roidb, scale_inds):
