@@ -23,6 +23,7 @@ from utils.nms import nms_3d
 from utils.boxes_grid import get_boxes_grid
 from utils.blob import prep_im_for_blob, im_list_to_blob, lidar_list_to_blob
 
+from roi_data_layer.minibatch import *
 from model.common import *
 from model.config import cfg, get_output_tracklets_dir
 from model.bbox_transform import corner_transform_inv
@@ -30,143 +31,6 @@ from model.boxes3d import *
 from model.bbox_transform import corner_transform_inv
 from model.generate_tracklet import *
 
-
-def _get_lidar_blob(lidar_path):
-  """Builds an input blob from the images in the roidb at the specified
-  scales.
-  """
-  processed_lidars = []
-  lidar = np.fromfile(lidar_path, dtype=np.float32)
-  lidar = lidar.reshape((-1, 4))
-  top_lidar = lidar_to_top_tensor(lidar)
-  processed_lidars.append(top_lidar)
-
-  # Create a blob to hold the input images
-  return lidar_list_to_blob(processed_lidars)
-
-
-def lidar_to_top_tensor(lidar):
-    X0, Xn = 0, int((TOP_X_MAX-TOP_X_MIN)/TOP_X_DIVISION)
-    Y0, Yn = 0, int((TOP_Y_MAX-TOP_Y_MIN)/TOP_Y_DIVISION)
-    Z0, Zn = 0, int((TOP_Z_MAX-TOP_Z_MIN)/TOP_Z_DIVISION)
-    width  = Yn - Y0
-    height   = Xn - X0
-    channel = Zn - Z0  + 2
-
-    pxs=lidar[:,0]
-    pys=lidar[:,1]
-    pzs=lidar[:,2]
-    prs=lidar[:,3]
-
-    qxs=((pxs-TOP_X_MIN)/TOP_X_DIVISION).astype(np.int32)
-    qys=((pys-TOP_Y_MIN)/TOP_Y_DIVISION).astype(np.int32)
-    qzs=((pzs-TOP_Z_MIN)/TOP_Z_DIVISION).astype(np.int32)
-
-    q_lidar = np.vstack((qxs, qys, qzs, pzs, prs)).T
-    indices = np.where((q_lidar[:,0] < Xn) & (q_lidar[:,0] >= X0) & (q_lidar[:, 1] < Yn) & (q_lidar[:, 1] >= Y0) & (q_lidar[:,2] < Zn) & (q_lidar[:,2] >= Z0))[0]
-    q_lidar = q_lidar[indices, :]
-    #print('height,width,channel=%d,%d,%d'%(height,width,channel))
-    top = np.zeros(shape=(height,width,channel), dtype=np.float32)
-
-    for l in q_lidar:
-        yy,xx,zz = -int(l[0]-X0),-int(l[1]-Y0),int(l[2]-Z0)
-        height = max(0,l[3]-TOP_Z_MIN)
-        top[yy,xx,Zn+1] = top[yy,xx,Zn+1] + 1
-        if top[yy, xx, zz] < height:
-            top[yy,xx,zz] = height
-        if top[yy, xx, Zn] < l[4]:
-            top[yy,xx,Zn] = l[4]
-
-    top[:,:,Zn+1] = np.log(top[:,:,Zn+1]+1)/math.log(64)
-
-
-    if 1:
-        top_image = np.sum(top,axis=2)
-        top_image = top_image-np.min(top_image)
-        top_image = (top_image/np.max(top_image)*255)
-        top_image = np.dstack((top_image, top_image, top_image)).astype(np.uint8)
-
-    return top, top_image
-
-def lidar_to_front_tensor(lidar):
-    THETA0,THETAn = 0, int((HORIZONTAL_MAX-HORIZONTAL_MIN)/HORIZONTAL_RESOLUTION)
-    PHI0, PHIn = 0, int((VERTICAL_MAX-VERTICAL_MIN)/VERTICAL_RESOLUTION)
-    indices = np.where((lidar[:, 0] > 0.0))[0]
-
-    width = THETAn - THETA0
-    height = PHIn - PHI0
-
-    pxs=lidar[indices,0]
-    pys=lidar[indices,1]
-    pzs=lidar[indices,2]
-    prs=lidar[indices,3]
-
-    cs = ((np.arctan2(pxs, -pys) - HORIZONTAL_MIN) / HORIZONTAL_RESOLUTION).astype(np.int32)
-    rs = ((np.arctan2(pzs, np.hypot(pxs, pys)) - VERTICAL_MIN) / VERTICAL_RESOLUTION).astype(np.int32)
-    ds = np.hypot(pxs, pys)
-
-
-    rcs = np.vstack((rs, cs, pzs, ds, prs)).T
-    indices = np.where((rcs[:,0] < PHIn) & (rcs[:,0] >= PHI0) & (rcs[:, 1] < THETAn) & (rcs[:, 1] >= THETA0))[0]
-    rcs = rcs[indices, :]
-    front = np.zeros(shape=(height,width,3), dtype=np.float32)
-    front[:, 0] = -1.73
-
-    for rc in rcs:
-        yy, xx = -int(rc[0] - PHI0), -int(rc[1] - THETA0) 
-        # rc[2] => height
-        if front[yy,xx,0] < rc[2]:
-            front[yy,xx, 0] = rc[2]
-        # rc[3] => distance
-        if front[yy,xx,1] < rc[3]:
-            front[yy,xx,1] = rc[3]
-        # rc[4] => intensity
-        if front[yy,xx,2] < rc[4]:
-            front[yy,xx,2] = rc[4]
-
-    front[:, :, 0] = front[:, :, 0]-np.min(front[:, :, 0])
-    front[:, :, 0] = (front[:, :, 0]/np.max(front[:, :, 0])*255).astype(np.uint8)
-    front[:, :, 1] = front[:, :, 1]-np.min(front[:, :, 1])
-    front[:, :, 1] = (front[:, :, 1]/np.max(front[:, :, 1])*255).astype(np.uint8)
-    front[:, :, 2] = front[:, :, 2]-np.min(front[:, :, 2])
-    front[:, :, 2] = (front[:, :, 2]/np.max(front[:, :, 2])*255).astype(np.uint8)
-    front = np.dstack((front[:,:, 0], front[:,:, 1], front[:,:, 2])).astype(np.uint8)
-        
-    return front
-
-def _get_image_blob(im):
-  """Converts an image into a network input.
-  Arguments:
-    im (ndarray): a color image in BGR order
-  Returns:
-    blob (ndarray): a data blob holding an image pyramid
-    im_scale_factors (list): list of image scales (relative to im) used
-      in the image pyramid
-  """
-  im_orig = im.astype(np.float32, copy=True)
-  im_orig -= cfg.PIXEL_MEANS
-
-  im_shape = im_orig.shape
-  im_size_min = np.min(im_shape[0:2])
-  im_size_max = np.max(im_shape[0:2])
-
-  processed_ims = []
-  im_scale_factors = []
-
-  for target_size in cfg.TEST.SCALES:
-    im_scale = float(target_size) / float(im_size_min)
-    # Prevent the biggest axis from being more than MAX_SIZE
-    if np.round(im_scale * im_size_max) > cfg.TEST.MAX_SIZE:
-      im_scale = float(cfg.TEST.MAX_SIZE) / float(im_size_max)
-    im = cv2.resize(im_orig, None, None, fx=im_scale, fy=im_scale,
-            interpolation=cv2.INTER_LINEAR)
-    im_scale_factors.append(im_scale)
-    processed_ims.append(im)
-
-  # Create a blob to hold the input images
-  blob = im_list_to_blob(processed_ims)
-
-  return blob, im_scale_factors
 
 def _draw_on_image(im, corners):
   for i in range(corners.shape[0]):
@@ -214,8 +78,7 @@ def im_detect(sess, net, lidar_path, num_classes):
   top_lidar_blob, front_lidar_blob = _get_lidar_blob(lidar_path)
 
   blobs = {'top_lidar': top_lidar_blob}
-  # seems to have height, width, and image scales
-  # still not sure about the scale, maybe full image it is 1.
+
   blobs['top_lidar_info'] = np.array(
     [[top_lidar_blob.shape[1], top_lidar_blob.shape[2], top_lidar_blob.shape[3]]],
     dtype=np.float32)
@@ -307,11 +170,12 @@ def test_net(sess, net, num_classes, test_path, weights_filename, max_per_image=
   all_corners = [[[] for _ in range(num_lidars)]
          for _ in range(num_classes)]
 
-  output_dir = get_output_tracklets_dir('TRACKLET_TEST', weights_filename)
+  #output_dir = get_output_tracklets_dir('TRACKLET_TEST', weights_filename)
+  output_dir = test_path
   # timers
   _t = {'im_detect' : Timer(), 'misc' : Timer()}
-  collection = TrackletCollection()
-  tracklet = Tracklet(object_type='Car', l=3.83, w=3.83, h=1.35, first_frame=0)
+  #tracklet = Tracklet(object_type='car', l=3.83, w=3.83, h=1.35, first_frame=0)
+  tracklets = [Tracklet() for _ in range(1, num_classes)]
 
   for i, file in enumerate(files):
     path, basename = os.path.split(img_files[i])
@@ -350,7 +214,7 @@ def test_net(sess, net, num_classes, test_path, weights_filename, max_per_image=
 	  lidar = lidar.reshape((-1, 4))
 	  _, lidar_img = lidar_to_top_tensor(lidar)
 	  lidar_img = _draw_on_image(lidar_img, corners[keep, j, :])
-          tracklet.poses.extend(_get_poses(corners[keep, j, :]))
+          tracklets[j-1].poses.extend(_get_poses(corners[keep, j, :]))
 	  det_lidar = os.path.join(output_dir, stem + '.png')
 	  cv2.imwrite(det_lidar, lidar_img)
           all_corners[j][i] = all_corners[j][i][keep, :]
@@ -361,10 +225,13 @@ def test_net(sess, net, num_classes, test_path, weights_filename, max_per_image=
         .format(i + 1, num_lidars, _t['im_detect'].average_time,
             _t['misc'].average_time))
 
+  for j in range(1, num_classes):
+      collection = TrackletCollection()
+      collection.tracklets.append(tracklets[j-1])
+      tracklet_file = os.path.join(output_dir, 'tracklet_labels_' + str(j) + '.xml')
+      collection.write_xml(tracklet_file)
+
   det_file = os.path.join(output_dir, 'detections.pkl')
-  collection.tracklets.append(tracklet)
-  tracklet_file = os.path.join(output_dir, 'tracklet_labels.xml')
-  collection.write_xml(tracklet_file)
   with open(det_file, 'wb') as f:
     pickle.dump(all_corners, f, pickle.HIGHEST_PROTOCOL)
 

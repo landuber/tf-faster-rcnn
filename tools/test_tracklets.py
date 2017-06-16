@@ -34,7 +34,7 @@ def parse_args():
             default='./', type=str)
   parser.add_argument('--num_classes', dest='num_classes',
             help='number of classes',
-            default=2, type=int)
+            default=3, type=int)
   parser.add_argument('--num_dets', dest='max_per_image',
             help='max number of detections per image',
             default=1, type=int)
