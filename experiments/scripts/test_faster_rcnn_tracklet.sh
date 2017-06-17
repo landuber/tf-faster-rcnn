@@ -8,10 +8,11 @@ export PYTHONUNBUFFERED="True"
 GPU_ID=$1
 DATASET=$2
 NET=$3
+DATA_PATH=$4
 
 array=( $@ )
 len=${#array[@]}
-EXTRA_ARGS=${array[@]:3:$len}
+EXTRA_ARGS=${array[@]:4:$len}
 EXTRA_ARGS_SLUG=${EXTRA_ARGS// /_}
 
 case ${DATASET} in
@@ -25,7 +26,7 @@ case ${DATASET} in
     TRAIN_IMDB="kitti3d_train"
     TEST_IMDB="kitti3d_test"
     STEPSIZE=80000
-    ITERS=120000
+    ITERS=60000
     ANCHORS="[8,16,32]"
     ;;
   pascal_voc_0712)
@@ -58,7 +59,6 @@ else
 fi
 set -x
 
-DATA_PATH=./data/RoundOneTest
 if [[ ! -z  ${EXTRA_ARGS_SLUG}  ]]; then
   CUDA_VISIBLE_DEVICES=${GPU_ID} time python ./tools/test_tracklets.py \
     --model ${NET_FINAL} \

@@ -31,18 +31,37 @@ from model.boxes3d import *
 from model.bbox_transform import corner_transform_inv
 from model.generate_tracklet import *
 
+def _get_lidar_blob(lidar_path):
+  """Builds an input blob from the images in the roidb at the specified
+  scales.
+  """
+  processed_lidars = []
+  lidar = np.fromfile(lidar_path, dtype=np.float32)
+  lidar = lidar.reshape((-1, 4))
+  keep = np.where((lidar[:, 0] > 1.8) | (lidar[:, 0] < -1.)
+		 &(lidar[:, 1] > 1.) | (lidar[:, 1] < -1.))[0]
+  lidar = lidar[keep, :]
+  front_lidar = np.empty_like(lidar)
+  front_lidar[:] = lidar
+  top_lidar = lidar_to_top_tensor(lidar)
+  front_lidar = lidar_to_front_tensor(front_lidar)
+  processed_lidars.append((top_lidar, front_lidar))
+
+  # Create a blob to hold the input images
+  return lidar_list_to_blob(processed_lidars)
 
 def _draw_on_image(im, corners):
   for i in range(corners.shape[0]):
-    points = np.zeros((corners[i, :].shape[0], 2), dtype=np.float32)
-    for k in range(corners[i, :].shape[0]):
+    assert corners[i, :].shape[0] == 8
+    points = []
+    for k in range(8):
       point_x, point_y = lidar_to_top_coords(corners[i, k, 0],
 				       corners[i, k, 1],
 				       corners[i, k, 2])
-      points[k, :] = [point_x, point_y]
-    x1, y1 = points.min(axis=0)
-    x2, y2 = points.max(axis=0)
-    cv2.rectangle(im, (int(x1), int(y1)), (int(x2), int(y2)), (173, 223, 48), 1)
+      points.append([point_x, point_y])
+    pts = np.array(points, np.int32)
+    pts = pts.reshape((-1, 1, 2))
+    cv2.polylines(im, [pts], True, (255, 0, 0))
   return im
 
 def _get_poses(dets):
@@ -149,9 +168,18 @@ def interpolate_lidar_to_camera(img_files, lidar_files):
   paths = paths.loc[img_df.index]
   return paths.values.T[0]
 
+def top_img(lidar):
+  top_tensor = lidar_to_top_tensor(lidar)
+  img = np.sum(np.absolute(top_tensor), axis=2)
+  img = img - np.min(img)
+  img = (img/np.max(img) * 255)
+  img = np.dstack((img, img, img)).astype(np.uint8)
 
-def test_net(sess, net, num_classes, test_path, weights_filename, max_per_image=1, thresh=0.05):
+  return img
+
+def test_net(sess, net, num_classes, test_path, weights_filename, max_per_image=1, thresh=0.00):
   
+  print(test_path)
   _imagedir = os.path.join(test_path, 'JPEGImages')
   _lidardir = os.path.join(test_path, 'Lidar')
 
@@ -171,11 +199,15 @@ def test_net(sess, net, num_classes, test_path, weights_filename, max_per_image=
          for _ in range(num_classes)]
 
   #output_dir = get_output_tracklets_dir('TRACKLET_TEST', weights_filename)
-  output_dir = test_path
+  mkdir = lambda dir: os.makedirs(dir) if not os.path.exists(dir) else None
+  output_dir = os.path.join(test_path, 'Detections')
+  for j in range(1, num_classes):
+    mkdir(os.path.join(output_dir, str(j))) 
+
   # timers
   _t = {'im_detect' : Timer(), 'misc' : Timer()}
   #tracklet = Tracklet(object_type='car', l=3.83, w=3.83, h=1.35, first_frame=0)
-  tracklets = [Tracklet() for _ in range(1, num_classes)]
+  tracklets = [Tracklet(object_type='car', l=3.83, w=3.83, h=1.35, first_frame=0) for _ in range(1, num_classes)]
 
   for i, file in enumerate(files):
     path, basename = os.path.split(img_files[i])
@@ -208,15 +240,15 @@ def test_net(sess, net, num_classes, test_path, weights_filename, max_per_image=
                     for j in range(1, num_classes)])
       if len(lidar_scores) > max_per_image:
         lidar_thresh = np.sort(lidar_scores)[-max_per_image]
+	#print(lidar_thresh)
         for j in range(1, num_classes):
           keep = np.where(all_corners[j][i][:, -1] >= lidar_thresh)[0]
 	  lidar = np.fromfile(file, dtype=np.float32)
 	  lidar = lidar.reshape((-1, 4))
-	  _, lidar_img = lidar_to_top_tensor(lidar)
+	  lidar_img = top_img(lidar)
 	  lidar_img = _draw_on_image(lidar_img, corners[keep, j, :])
           tracklets[j-1].poses.extend(_get_poses(corners[keep, j, :]))
-	  det_lidar = os.path.join(output_dir, stem + '.png')
-	  cv2.imwrite(det_lidar, lidar_img)
+	  cv2.imwrite(os.path.join(output_dir, str(j), stem + '.png'), lidar_img)
           all_corners[j][i] = all_corners[j][i][keep, :]
     _t['misc'].toc()
 
