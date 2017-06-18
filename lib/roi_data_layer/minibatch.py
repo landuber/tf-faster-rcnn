@@ -107,7 +107,6 @@ def lidar_to_top_tensor(lidar):
                      & (q_lidar[:, 2] < Zn) & (q_lidar[:, 2] >= Z0))[0]
     q_lidar = q_lidar[indices, :]
     top = np.zeros(shape=(height,width,channel), dtype=np.float32)
-    min_height = pzs.min() 
 
     indices = q_lidar.astype(np.int)
     indices[:, 0] *= -1
@@ -117,8 +116,7 @@ def lidar_to_top_tensor(lidar):
     for l in q_lidar:
         yy,xx,zz = -int(l[0]-X0),-int(l[1]-Y0),int(l[2]-Z0)
 	# height in meters of the lidar point
-        height = max(min_height, l[3])
-        #height = l[3]
+        height = l[3]
         top[yy,xx,Zn+1] = top[yy,xx,Zn+1] + 1
         if top[yy, xx, zz] < height:
             top[yy,xx,zz] = height
@@ -150,8 +148,12 @@ def lidar_to_front_tensor(lidar):
     rcs = np.vstack((rs, cs, pzs, ds, prs)).T
     indices = np.where((rcs[:,0] < PHIn) & (rcs[:,0] >= PHI0) & (rcs[:, 1] < THETAn) & (rcs[:, 1] >= THETA0))[0]
     rcs = rcs[indices, :]
-    front = np.ones(shape=(height,width,3), dtype=np.float32) * -sys.float_info.max
-    front[:, :, 1:3] = 0.0
+    front = np.zeros(shape=(height,width,3), dtype=np.float32) 
+
+    indices = rcs.astype(np.int)
+    indices[:, 0] *= -1
+    indices[:, 1] *= -1
+    top[indices[:, 0], indices[:,1], :] = -sys.float_info.max
 
     for rc in rcs:
         yy, xx = -int(rc[0] - PHI0), -int(rc[1] - THETA0) 
@@ -164,9 +166,6 @@ def lidar_to_front_tensor(lidar):
         # rc[4] => intensity
         if front[yy,xx,2] < rc[4]:
             front[yy,xx,2] = rc[4]
-
-    indices = np.where(front == -sys.float_info.max)
-    front[indices[0], indices[1], indices[2]] = 0.0
 
     return front
 
