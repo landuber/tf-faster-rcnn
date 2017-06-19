@@ -20,10 +20,10 @@ def box_from_corners(corners):
     return box
 
 def lidar_to_top_coords(x,y,z=None):
-    X0, Xn = 0, int((TOP_X_MAX-TOP_X_MIN)/TOP_X_DIVISION)
-    Y0, Yn = 0, int((TOP_Y_MAX-TOP_Y_MIN)/TOP_Y_DIVISION)
-    xx = Yn-int((y-TOP_Y_MIN)/TOP_Y_DIVISION)
-    yy = Xn-int((x-TOP_X_MIN)/TOP_X_DIVISION)
+    X0, Xn = 0, int(round((TOP_X_MAX-TOP_X_MIN)/TOP_X_DIVISION))
+    Y0, Yn = 0, int(round((TOP_Y_MAX-TOP_Y_MIN)/TOP_Y_DIVISION))
+    xx = Yn-int(round((y-TOP_Y_MIN)/TOP_Y_DIVISION))
+    yy = Xn-int(round((x-TOP_X_MIN)/TOP_X_DIVISION))
 
     return xx, yy
 
@@ -52,9 +52,9 @@ def lidar_box_to_top_box(b):
 
     z0 = max(b[0,2], b[1,2], b[2,2], b[3,2]) # top
     z4 = min(b[4,2], b[5,2], b[6,2], b[7,2]) # bottom
-    Zn = int((TOP_Z_MAX-TOP_Z_MIN)/TOP_Z_DIVISION)
-    zmax = int((z0-TOP_Z_MIN)/TOP_Z_DIVISION)
-    zmin = int((z4-TOP_Z_MIN)/TOP_Z_DIVISION)
+    Zn = int(round((TOP_Z_MAX-TOP_Z_MIN)/TOP_Z_DIVISION))
+    zmax = int(round((z0-TOP_Z_MIN)/TOP_Z_DIVISION))
+    zmin = int(round((z4-TOP_Z_MIN)/TOP_Z_DIVISION))
 
     umin=min(u0,u1,u2,u3)
     umax=max(u0,u1,u2,u3)
@@ -140,10 +140,10 @@ def box_from_corners(corners):
     return box
 
 def lidar_to_front_coord(xx, yy, zz):
-    THETA0,THETAn = 0, int((HORIZONTAL_MAX-HORIZONTAL_MIN)/HORIZONTAL_RESOLUTION)
-    PHI0, PHIn = 0, int((VERTICAL_MAX-VERTICAL_MIN)/VERTICAL_RESOLUTION)
-    c = ((np.arctan2(xx, -yy) - HORIZONTAL_MIN) / HORIZONTAL_RESOLUTION).astype(np.int32)
-    r = ((np.arctan2(zz, np.hypot(xx, yy)) - VERTICAL_MIN) / VERTICAL_RESOLUTION).astype(np.int32)
+    THETA0,THETAn = 0, int(round((HORIZONTAL_MAX-HORIZONTAL_MIN)/HORIZONTAL_RESOLUTION))
+    PHI0, PHIn = 0, int(round((VERTICAL_MAX-VERTICAL_MIN)/VERTICAL_RESOLUTION))
+    c = np.rint(((np.arctan2(xx, -yy) - HORIZONTAL_MIN) / HORIZONTAL_RESOLUTION))
+    r = np.rint(((np.arctan2(zz, np.hypot(xx, yy)) - VERTICAL_MIN) / VERTICAL_RESOLUTION))
     yy, xx = PHIn - int(r), THETAn - int(c) 
     return xx, yy
 
@@ -153,8 +153,8 @@ def lidar_to_rgb_coord(xx, yy, zz):
     return (rgb_point[0, :] / rgb_point[2, :], rgb_point[1, :] / rgb_point[2, :])
 
 def top_to_lidar_coord(xx, yy, zz):
-    X0, Xn = 0, int((TOP_X_MAX-TOP_X_MIN)/TOP_X_DIVISION)
-    Y0, Yn = 0, int((TOP_Y_MAX-TOP_Y_MIN)/TOP_Y_DIVISION)
+    X0, Xn = 0, int(round((TOP_X_MAX-TOP_X_MIN)/TOP_X_DIVISION))
+    Y0, Yn = 0, int(round((TOP_Y_MAX-TOP_Y_MIN)/TOP_Y_DIVISION))
     x = ((Xn - yy) - 0.5) * TOP_X_DIVISION + TOP_X_MIN
     y = ((Yn - xx) - 0.5) * TOP_Y_DIVISION + TOP_Y_MIN
     z = (zz + 0.5)*TOP_Z_DIVISION + TOP_Z_MIN

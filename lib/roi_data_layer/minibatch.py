@@ -84,9 +84,9 @@ def _get_lidar_blob(roidb):
 
 
 def lidar_to_top_tensor(lidar):
-    X0, Xn = 0, int((TOP_X_MAX-TOP_X_MIN)/TOP_X_DIVISION)
-    Y0, Yn = 0, int((TOP_Y_MAX-TOP_Y_MIN)/TOP_Y_DIVISION)
-    Z0, Zn = 0, int((TOP_Z_MAX-TOP_Z_MIN)/TOP_Z_DIVISION)
+    X0, Xn = 0, int(round((TOP_X_MAX-TOP_X_MIN)/TOP_X_DIVISION))
+    Y0, Yn = 0, int(round((TOP_Y_MAX-TOP_Y_MIN)/TOP_Y_DIVISION))
+    Z0, Zn = 0, int(round((TOP_Z_MAX-TOP_Z_MIN)/TOP_Z_DIVISION))
     width  = Yn - Y0
     height   = Xn - X0
     channel = Zn - Z0  + 2
@@ -96,9 +96,9 @@ def lidar_to_top_tensor(lidar):
     pzs=lidar[:,2]
     prs=lidar[:,3]
 
-    qxs=((pxs-TOP_X_MIN)/TOP_X_DIVISION).astype(np.int32)
-    qys=((pys-TOP_Y_MIN)/TOP_Y_DIVISION).astype(np.int32)
-    qzs=((pzs-TOP_Z_MIN)/TOP_Z_DIVISION).astype(np.int32)
+    qxs= np.rint(((pxs-TOP_X_MIN)/TOP_X_DIVISION))
+    qys= np.rint(((pys-TOP_Y_MIN)/TOP_Y_DIVISION))
+    qzs= np.rint(((pzs-TOP_Z_MIN)/TOP_Z_DIVISION))
 
     q_lidar = np.vstack((qxs, qys, qzs, pzs, prs)).T
     # constrain it to the box
@@ -128,8 +128,8 @@ def lidar_to_top_tensor(lidar):
 
 
 def lidar_to_front_tensor(lidar):
-    THETA0,THETAn = 0, int((HORIZONTAL_MAX-HORIZONTAL_MIN)/HORIZONTAL_RESOLUTION)
-    PHI0, PHIn = 0, int((VERTICAL_MAX-VERTICAL_MIN)/VERTICAL_RESOLUTION)
+    THETA0,THETAn = 0, int(round((HORIZONTAL_MAX-HORIZONTAL_MIN)/HORIZONTAL_RESOLUTION))
+    PHI0, PHIn = 0, int(round((VERTICAL_MAX-VERTICAL_MIN)/VERTICAL_RESOLUTION))
     #indices = np.where((lidar[:, 0] > 0.0))[0]
 
     width = THETAn - THETA0
@@ -140,8 +140,8 @@ def lidar_to_front_tensor(lidar):
     pzs=lidar[:,2]
     prs=lidar[:,3]
 
-    cs = ((np.absolute(np.arctan2(pxs, -pys)) - HORIZONTAL_MIN) / HORIZONTAL_RESOLUTION).astype(np.int32)
-    rs = ((np.arctan2(pzs, np.hypot(pxs, pys)) - VERTICAL_MIN) / VERTICAL_RESOLUTION).astype(np.int32)
+    cs = np.rint(((np.absolute(np.arctan2(pxs, -pys)) - HORIZONTAL_MIN) / HORIZONTAL_RESOLUTION))
+    rs = np.rint(((np.arctan2(pzs, np.hypot(pxs, pys)) - VERTICAL_MIN) / VERTICAL_RESOLUTION))
     ds = np.hypot(pxs, pys)
 
 
