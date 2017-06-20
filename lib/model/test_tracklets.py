@@ -64,13 +64,36 @@ def _draw_on_image(im, corners):
     cv2.polylines(im, [pts], True, (255, 0, 0))
   return im
 
+def _get_rotz(corners):
+  rots = []
+  dims = np.empty((corners.shape[0], 3), dtype=np.float32)
+  for i in range(corners.shape[0]):
+     dim1 = np.linalg.norm(corners[i, 0, :] - corners[i, 1, :])
+     dim2 = np.linalg.norm(corners[i, 1, :] - corners[i, 2, :])
+     dim3 = np.linalg.norm(corners[i, 0, :] - corners[i, 4, :])
+     if dim1 > dim2:
+	dims[i, :] = [dim1, dim2, dim3]
+	idx = 0
+     else:
+	dims[i, :] = [dim2, dim1, dim3]
+ 	idx = 1
+
+     slope = (corners[i, idx, 0] - corners[i, idx+1, 0]) / (corners[i, idx, 1] - corners[i, idx+1, 1])
+     rots.append(np.arctan(1./abs(slope)))
+  return np.array(rots).T, np.mean(dims, axis=0)
+  
+
+
 def _get_poses(dets):
+    rot_z, dim = _get_rotz(dets)
     delta = dets.max(axis=1) - dets.min(axis=1)
     loc = (dets.min(axis=1) + (delta / 2))
+    loc[:, 2] = dets.min(axis=1)[:, 2]
     rot = np.zeros_like(loc, dtype=np.float32)
+    rot[:, 2] = rot_z
     poses = np.hstack((loc, rot))
     poses = pd.DataFrame(poses, columns=['tx', 'ty', 'tz', 'rx', 'ry', 'rz'])
-    return poses.to_dict(orient='records')
+    return poses.to_dict(orient='records'), dim
   
 
 
@@ -199,15 +222,17 @@ def test_net(sess, net, num_classes, test_path, weights_filename, max_per_image=
          for _ in range(num_classes)]
 
   #output_dir = get_output_tracklets_dir('TRACKLET_TEST', weights_filename)
+  obj_types = ['car', 'pedestrian']
   mkdir = lambda dir: os.makedirs(dir) if not os.path.exists(dir) else None
   output_dir = os.path.join(test_path, 'Detections')
   for j in range(1, num_classes):
-    mkdir(os.path.join(output_dir, str(j))) 
+    mkdir(os.path.join(output_dir, obj_types[j-1])) 
 
   # timers
   _t = {'im_detect' : Timer(), 'misc' : Timer()}
   #tracklet = Tracklet(object_type='car', l=3.83, w=3.83, h=1.35, first_frame=0)
-  tracklets = [Tracklet(object_type='car', l=3.83, w=3.83, h=1.35, first_frame=0) for _ in range(1, num_classes)]
+  tracklets = [Tracklet(object_type=obj_types[k-1], l=0., w=0., h=0., first_frame=0) for k in range(1, num_classes)]
+  dims = np.zeros((num_classes - 1, len(files), 3), dtype=np.float32) 
 
   for i, file in enumerate(files):
     path, basename = os.path.split(img_files[i])
@@ -236,19 +261,20 @@ def test_net(sess, net, num_classes, test_path, weights_filename, max_per_image=
 
     # Limit to max_per_image detections *over all classes*
     if max_per_image > 0:
-      lidar_scores = np.hstack([all_corners[j][i][:, -1]
-                    for j in range(1, num_classes)])
-      if len(lidar_scores) > max_per_image:
-        lidar_thresh = np.sort(lidar_scores)[-max_per_image]
+        lidar_scores = [all_corners[j][i][:, -1] for j in range(1, num_classes)]
 	#print(lidar_thresh)
         for j in range(1, num_classes):
+	  if len(lidar_scores[j-1]) > max_per_image:
+             lidar_thresh = np.sort(lidar_scores[j-1])[-max_per_image]
           keep = np.where(all_corners[j][i][:, -1] >= lidar_thresh)[0]
 	  lidar = np.fromfile(file, dtype=np.float32)
 	  lidar = lidar.reshape((-1, 4))
 	  lidar_img = top_img(lidar)
 	  lidar_img = _draw_on_image(lidar_img, corners[keep, j, :])
-          tracklets[j-1].poses.extend(_get_poses(corners[keep, j, :]))
-	  cv2.imwrite(os.path.join(output_dir, str(j), stem + '.png'), lidar_img)
+	  poses, dim = _get_poses(corners[keep, j, :])
+	  dims[j-1, i, :] = dim
+          tracklets[j-1].poses.extend(poses)
+	  cv2.imwrite(os.path.join(output_dir, obj_types[j-1], stem + '.png'), lidar_img)
           all_corners[j][i] = all_corners[j][i][keep, :]
     _t['misc'].toc()
 
@@ -258,9 +284,14 @@ def test_net(sess, net, num_classes, test_path, weights_filename, max_per_image=
             _t['misc'].average_time))
 
   for j in range(1, num_classes):
+      tracklet = tracklets[j-1]
       collection = TrackletCollection()
-      collection.tracklets.append(tracklets[j-1])
-      tracklet_file = os.path.join(output_dir, 'tracklet_labels_' + str(j) + '.xml')
+      dim = np.mean(dims[j-1, :, :], axis=0)
+      tracklet.l = dim[0]
+      tracklet.w = dim[1]
+      tracklet.h = dim[2]
+      collection.tracklets.append(tracklet)
+      tracklet_file = os.path.join(output_dir, 'tracklet_labels_' + obj_types[j-1] + '.xml')
       collection.write_xml(tracklet_file)
 
   det_file = os.path.join(output_dir, 'detections.pkl')

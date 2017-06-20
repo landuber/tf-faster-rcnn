@@ -153,7 +153,7 @@ def lidar_to_front_tensor(lidar):
     indices = rcs.astype(np.int)
     indices[:, 0] *= -1
     indices[:, 1] *= -1
-    top[indices[:, 0], indices[:,1], :] = -sys.float_info.max
+    front[indices[:, 0], indices[:,1], :] = -sys.float_info.max
 
     for rc in rcs:
         yy, xx = -int(rc[0] - PHI0), -int(rc[1] - THETA0) 
