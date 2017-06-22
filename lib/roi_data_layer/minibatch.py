@@ -68,8 +68,7 @@ def _get_lidar_blob(roidb):
   for i in range(num_lidars):
     lidar = np.fromfile(roidb[i]['lidar'], dtype=np.float32)
     lidar = lidar.reshape((-1, 4))
-    keep = np.where((lidar[:, 0] > 1.8) | (lidar[:, 0] < -1.)
-                      &(lidar[:, 1] > 1.) | (lidar[:, 1] < -1.))[0]
+    keep = np.where((lidar[:, 0] > 1.8) | (lidar[:, 0] < -1.3) | (lidar[:, 1] > 0.8) | (lidar[:, 1] < -0.8))[0]
     lidar = lidar[keep, :]
     front_lidar = np.empty_like(lidar)
     front_lidar[:] = lidar

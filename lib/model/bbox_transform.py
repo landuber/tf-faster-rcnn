@@ -38,36 +38,23 @@ def bbox_transform(ex_rois, gt_rois):
     (targets_dx, targets_dy, targets_dz, targets_dw, targets_dh, targets_dd)).transpose()
   return targets
 
-
 def corner_transform(rois_corners, gt_corners):
-    deltas = rois_corners.max(axis=1) - rois_corners.min(axis=1)
-    rois_mins = rois_corners.min(axis=1)[:, np.newaxis, :]
-    diagonals = np.hypot(np.hypot(deltas[:,0], deltas[:,1]), deltas[:,2])
+    diagonals = np.linalg.norm(rois_corners.max(axis=1) - rois_corners.min(axis=1), axis=1)
     diagonals = diagonals[:, np.newaxis]
-    targets = (gt_corners - rois_mins)
-    targets = targets.transpose((0, 2, 1)).reshape((-1, 24))
-    targets = targets / diagonals
+    deltas = gt_corners - rois_corners
+    deltas = deltas.transpose((0, 2, 1)).reshape((-1, 24))
+    targets = deltas / diagonals
     return targets
 
-
-def corner_transform_inv(rois_corners, pred_deltas, num_classes):
-    deltas = rois_corners.max(axis=1) - rois_corners.min(axis=1)
-    rois_mins = rois_corners.min(axis=1)
-    rois_mins = np.tile(rois_mins, (1,num_classes)).reshape((-1, 3))
-    rois_mins = rois_mins[:, np.newaxis, :]
-    diagonals = np.hypot(np.hypot(deltas[:,0], deltas[:,1]), deltas[:,2])
+def corner_transform_inv(rois_corners, targets):
+    diagonals = np.linalg.norm(rois_corners.max(axis=1) - rois_corners.min(axis=1), axis=1)
     diagonals = diagonals[:, np.newaxis]
-    pred_corners = pred_deltas * diagonals
-    pred_corners = pred_corners.reshape((-1, 24))
-    pred_corners = pred_corners.reshape((-1, 3, 8)).transpose(0, 2, 1)
-    pred_corners = pred_corners + rois_mins
-    top_corners = np.empty((pred_corners.shape[0], 6))
-    for idx in range(pred_corners.shape[0]):
-         temp = lidar_box_to_top_box(pred_corners[idx, :])
-	 top_corners[idx, :] = corners_from_box(temp)
-
-    return top_corners, pred_corners
-
+    deltas = targets * diagonals
+    deltas = deltas.reshape((-1, 3, 8)).transpose(0,2,1)
+    pred_corners = rois_corners + deltas
+    return pred_corners 
+    
+    
 
 def bbox_transform_inv(boxes, deltas):
   if boxes.shape[0] == 0:

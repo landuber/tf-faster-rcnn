@@ -2,21 +2,17 @@ from common import *
 import numpy as np
 from utils.cython_bbox import bbox_overlaps
 
-def corners_from_box(box):
-    return np.hstack((box.min(axis=0), box.max(axis=0)))
-
 
 def box_from_corners(corners):
-    umin,vmin,zmin,umax,vmax,zmax = corners
-    box=np.array([[umin, vmin, zmin],
-                  [umax, vmin, zmin],
-                  [umax, vmax, zmin],
-                  [umin, vmax, zmin],
-                  [umin, vmin, zmax],
-                  [umax, vmin, zmax],
-                  [umax, vmax, zmax],
-                  [umin, vmax, zmax]])
-
+    x1, y1, z1, x2, y2, z2 = corners
+    box=np.array([[x1, y2, z2],
+		  [x2, y2, z2],
+		  [x2, y1, z2],
+	          [x1, y1, z2],
+	          [x1, y2, z1],
+		  [x2, y2, z1],
+		  [x2, y1, z1],
+	          [x1, y1, z1]])
     return box
 
 def lidar_to_top_coords(x,y,z=None):
@@ -33,7 +29,6 @@ def top_box_to_lidar_box(b):
         lidar_box[idx, :] = box_from_corners(np.hstack((top_to_lidar_coord(b[idx,0], b[idx,1], b[idx,2]), 
                                              top_to_lidar_coord(b[idx,3], b[idx,4], b[idx,5]))))
     return lidar_box
-
 
 
 def lidar_box_to_top_box(b):
@@ -62,8 +57,7 @@ def lidar_box_to_top_box(b):
     vmax=max(v0,v1,v2,v3)
 
 
-    # start from the top left corner and go clockwise
-    top_box = box_from_corners((umin,vmin,zmin,umax,vmax,zmax))
+    top_box = np.array([umin,vmin,zmin,umax,vmax,zmax])
 
     return top_box
 
@@ -81,40 +75,6 @@ def img_projection_layer(rois, image_info):
           img_rois[idx, :] = box_to_rgb_proj(box)
       return img_rois * image_info[0, 2]
 
-def  pred_projection_layer(pred, rois, scores, image_info, num_classes=2):
-     keep = scores[:, 1].T.argsort()[-10:][::-1]
-     if len(keep) > 0:
-             #todo: make this flexible for multiple classes
-	     top_corners = corner_transform_inv(top_box_to_lidar_box(rois[keep, :]), pred[keep, :])
-             top_corners = np.delete(top_corners, np.arange(top_corners.shape[0])[::num_classes], axis=0)
-             keep = filter_rois(top_corners, image_info)
-	     if len(keep) > 0:
-	     	return img_projection_layer(top_corners[keep, :], image_info)
-	     else:
-	     	return np.array([[0,0,0,0]], dtype=np.float32)
-     else:
-	     return np.array([[0,0,0,0]], dtype=np.float32)
-
-def corner_transform_inv(rois_corners, pred_deltas):
-    deltas = rois_corners.max(axis=1) - rois_corners.min(axis=1)
-    rois_mins = rois_corners.min(axis=1)[:, np.newaxis, :]
-    diagonals = np.hypot(np.hypot(deltas[:,0], deltas[:,1]), deltas[:,2])
-    diagonals = diagonals[:, np.newaxis]
-    pred_corners = pred_deltas * diagonals
-    pred_corners = pred_corners.reshape((-1, 3, 8)).transpose(0, 2, 1)
-    pred_corners = pred_corners + rois_mins
-    print('prediction')
-    print(pred_corners[:2, :])
-    print('rois')
-    print(rois_corners[:2, :])
-    top_corners = np.empty((pred_corners.shape[0], 6))
-    for idx in range(pred_corners.shape[0]):
-         temp = lidar_box_to_top_box(pred_corners[idx, :])
-	 top_corners[idx, :] = corners_from_box(temp)
-
-    return top_corners
-
-
 
 def filter_rois(rois, image_info):
   rois_rect = np.copy(img_projection_layer(rois, image_info))
@@ -124,20 +84,6 @@ def filter_rois(rois, image_info):
     np.ascontiguousarray(image_rect, dtype=np.float))
   return np.where(overlaps.max(axis=1) > 0)[0]
 
-
-
-def box_from_corners(corners):
-    umin,vmin,zmin,umax,vmax,zmax = corners
-    box=np.array([[umin, vmin, zmin],
-                  [umax, vmin, zmin],
-                  [umax, vmax, zmin],
-                  [umin, vmax, zmin],
-                  [umin, vmin, zmax],
-                  [umax, vmin, zmax],
-                  [umax, vmax, zmax],
-                  [umin, vmax, zmax]])
-
-    return box
 
 def lidar_to_front_coord(xx, yy, zz):
     THETA0,THETAn = 0, int(round((HORIZONTAL_MAX-HORIZONTAL_MIN)/HORIZONTAL_RESOLUTION))

@@ -38,9 +38,8 @@ def _get_lidar_blob(lidar_path):
   processed_lidars = []
   lidar = np.fromfile(lidar_path, dtype=np.float32)
   lidar = lidar.reshape((-1, 4))
-  keep = np.where((lidar[:, 0] > 1.8) | (lidar[:, 0] < -1.)
-		 &(lidar[:, 1] > 1.) | (lidar[:, 1] < -1.))[0]
-  lidar = lidar[keep, :]
+  valid = np.where((lidar[:, 0] > 1.8) | (lidar[:, 0] < -1.3) | (lidar[:, 1] > 0.8) | (lidar[:, 1] < -0.8))[0]
+  lidar = lidar[valid, :]
   front_lidar = np.empty_like(lidar)
   front_lidar[:] = lidar
   top_lidar = lidar_to_top_tensor(lidar)
@@ -50,37 +49,32 @@ def _get_lidar_blob(lidar_path):
   # Create a blob to hold the input images
   return lidar_list_to_blob(processed_lidars)
 
-def _draw_on_image(im, corners):
+def _draw_on_image(im, corners, rois):
+  
   for i in range(corners.shape[0]):
     assert corners[i, :].shape[0] == 8
     points = []
-    for k in range(8):
+    for k in range(4):
       point_x, point_y = lidar_to_top_coords(corners[i, k, 0],
 				       corners[i, k, 1],
 				       corners[i, k, 2])
-      points.append([point_x, point_y])
+      points.append((point_x, point_y))
     pts = np.array(points, np.int32)
     pts = pts.reshape((-1, 1, 2))
-    cv2.polylines(im, [pts], True, (255, 0, 0))
+    if 1:
+      #(r,g,b) = (np.random.random_integers(0, 255), np.random.random_integers(0, 255), np.random.random_integers(0, 255))
+      cv2.rectangle(im, (int(round(rois[i, 1])), int(round(rois[i, 2]))), (int(round(rois[i, 4])), int(round(rois[i, 5]))), (0, 255, 0), 1)
+      cv2.polylines(im, [pts], True, (0, 0, 255))
+      #cv2.rectangle(im, points[0], points[1], (0, 0, 255), 1)
   return im
 
 def _get_rotz(corners):
   rots = []
-  dims = np.empty((corners.shape[0], 3), dtype=np.float32)
-  for i in range(corners.shape[0]):
-     dim1 = np.linalg.norm(corners[i, 0, :] - corners[i, 1, :])
-     dim2 = np.linalg.norm(corners[i, 1, :] - corners[i, 2, :])
-     dim3 = np.linalg.norm(corners[i, 0, :] - corners[i, 4, :])
-     if dim1 > dim2:
-	dims[i, :] = [dim1, dim2, dim3]
-	idx = 0
-     else:
-	dims[i, :] = [dim2, dim1, dim3]
- 	idx = 1
-
-     slope = (corners[i, idx, 0] - corners[i, idx+1, 0]) / (corners[i, idx, 1] - corners[i, idx+1, 1])
-     rots.append(np.arctan(1./abs(slope)))
-  return np.array(rots).T, np.mean(dims, axis=0)
+  dim = np.array([np.linalg.norm(corners[0, 0, :] - corners[0, 1, :]),
+		        np.linalg.norm(corners[0, 1, :] - corners[0, 2, :]),
+		        np.linalg.norm(corners[0, 0, :] - corners[0, 4, :])])
+  rot = np.arctan2((corners[0, 0, 1] - corners[0, 1, 1]), (corners[0, 0, 0] - corners[0, 1, 0]))
+  return rot, dim
   
 
 
@@ -125,17 +119,16 @@ def im_detect(sess, net, lidar_path, num_classes):
     [[top_lidar_blob.shape[1], top_lidar_blob.shape[2], top_lidar_blob.shape[3]]],
     dtype=np.float32)
 
-  _, scores, corner_pred, rois = net.test(sess, blobs)
+  _, scores, corner_targets, rois = net.test(sess, blobs)
   
   # print(scores.shape, bbox_pred.shape, rois.shape, boxes.shape)
   corners = top_box_to_lidar_box(rois[:, 1:7])
   scores = np.reshape(scores, [scores.shape[0], -1])
-  corner_pred = np.reshape(corner_pred, [corner_pred.shape[0], -1])
-  # Apply bounding-box regression deltas
-  corner_deltas = corner_pred
-  _, pred_corners = corner_transform_inv(corners, corner_deltas, num_classes)
+  pred_corners = np.empty((scores.shape[0], num_classes, 8, 3), dtype=np.float32);
+  for j in range(num_classes):
+    pred_corners[:, j] = corner_transform_inv(corners, corner_targets[:, j*24:(j+1)*24])
 
-  return scores, pred_corners
+  return scores, pred_corners, rois
 
 def apply_nms(all_boxes, thresh):
   """Apply non-maximum suppression to all predicted boxes output by the
@@ -233,25 +226,26 @@ def test_net(sess, net, num_classes, test_path, weights_filename, max_per_image=
   #tracklet = Tracklet(object_type='car', l=3.83, w=3.83, h=1.35, first_frame=0)
   tracklets = [Tracklet(object_type=obj_types[k-1], l=0., w=0., h=0., first_frame=0) for k in range(1, num_classes)]
   dims = np.zeros((num_classes - 1, len(files), 3), dtype=np.float32) 
+  top_score = 0 
+  top_score_index = 0
 
   for i, file in enumerate(files):
     path, basename = os.path.split(img_files[i])
     stem, ext = os.path.splitext(basename)
 
     _t['im_detect'].tic()
-    scores, corners = im_detect(sess, net, file, num_classes)
+    scores, corners, rois = im_detect(sess, net, file, num_classes)
     _t['im_detect'].toc()
 
     _t['misc'].tic()
 
     # skip j = 0, because it's the background class
     #corners = np.delete(corners, np.arange(corners.shape[0])[::num_classes], axis=0)
-    corners = corners.reshape((scores.shape[0], num_classes, 8, 3))
+    #corners = corners.reshape((scores.shape[0], num_classes, 8, 3))
     for j in range(1, num_classes):
       inds = np.where(scores[:, j] > thresh)[0]
       cls_scores = scores[inds, j]
-      cls_corners = corners[inds, j, :].reshape((-1, 24))
-      cls_dets = np.hstack((cls_corners, cls_scores[:, np.newaxis])) \
+      cls_dets = np.hstack((corners[inds, j, :].reshape((-1, 24)), cls_scores[:, np.newaxis])) \
         .astype(np.float32, copy=False)
       #todo: add 3D NMS
       keep = nms_3d(cls_dets, cfg.TEST.NMS)
@@ -260,22 +254,32 @@ def test_net(sess, net, num_classes, test_path, weights_filename, max_per_image=
 
 
     # Limit to max_per_image detections *over all classes*
+    max_per_image = 1 # todo: remove this 
     if max_per_image > 0:
-        lidar_scores = [all_corners[j][i][:, -1] for j in range(1, num_classes)]
-	#print(lidar_thresh)
         for j in range(1, num_classes):
-	  if len(lidar_scores[j-1]) > max_per_image:
-             lidar_thresh = np.sort(lidar_scores[j-1])[-max_per_image]
-          keep = np.where(all_corners[j][i][:, -1] >= lidar_thresh)[0]
-	  lidar = np.fromfile(file, dtype=np.float32)
-	  lidar = lidar.reshape((-1, 4))
-	  lidar_img = top_img(lidar)
-	  lidar_img = _draw_on_image(lidar_img, corners[keep, j, :])
-	  poses, dim = _get_poses(corners[keep, j, :])
+          lidar_scores = np.sort(all_corners[j][i][:, -1])
+	  if len(lidar_scores) > max_per_image:
+             lidar_thresh = lidar_scores[-max_per_image]
+             keep = np.where(all_corners[j][i][:, -1] >= lidar_thresh)[0]
+             all_corners[j][i] = all_corners[j][i][keep, :]
+          if lidar_scores[-1] > top_score:
+             top_score = lidar_scores[-1]
+             top_score_index = i
+          corners_pose = all_corners[j][i][:, :24].reshape((-1, 8, 3))
+          #print(corners_pose)
+          #print(top_box_to_lidar_box(rois[keep, 1:]))
+          #print(rois[keep, 1:])
+	  poses, dim = _get_poses(corners_pose)
 	  dims[j-1, i, :] = dim
           tracklets[j-1].poses.extend(poses)
-	  cv2.imwrite(os.path.join(output_dir, obj_types[j-1], stem + '.png'), lidar_img)
-          all_corners[j][i] = all_corners[j][i][keep, :]
+	  if 1:
+	    lidar = np.fromfile(file, dtype=np.float32)
+	    lidar = lidar.reshape((-1, 4))
+	    #valid = np.where((lidar[:, 0] > 1.8) | (lidar[:, 0] < -1.3) | (lidar[:, 1] > 0.8) | (lidar[:, 1] < -0.8))[0]
+	    #lidar = lidar[valid, :]
+	    lidar_img = top_img(lidar)
+	    lidar_img = _draw_on_image(lidar_img, corners_pose, rois[keep])
+	    cv2.imwrite(os.path.join(output_dir, obj_types[j-1], stem + '.png'), lidar_img)
     _t['misc'].toc()
 
 
@@ -286,7 +290,7 @@ def test_net(sess, net, num_classes, test_path, weights_filename, max_per_image=
   for j in range(1, num_classes):
       tracklet = tracklets[j-1]
       collection = TrackletCollection()
-      dim = np.mean(dims[j-1, :, :], axis=0)
+      dim =  dims[j-1, top_score_index, :]
       tracklet.l = dim[0]
       tracklet.w = dim[1]
       tracklet.h = dim[2]

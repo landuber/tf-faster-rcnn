@@ -239,7 +239,7 @@ class kitti_voc(imdb):
                 lidarb[ic, :] = [float(cr.find('x').text),
                                   float(cr.find('y').text),
                                   float(cr.find('z').text)]
-            top_box = corners_from_box(lidar_box_to_top_box(lidarb))
+            top_box = lidar_box_to_top_box(lidarb)
 
             class_name = obj.find('name').text.lower().strip()
             if class_name != 'dontcare':
