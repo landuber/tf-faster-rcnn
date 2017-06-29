@@ -39,20 +39,30 @@ def bbox_transform(ex_rois, gt_rois):
   return targets
 
 def corner_transform(rois_corners, gt_corners):
-    diagonals = np.linalg.norm(rois_corners.max(axis=1) - rois_corners.min(axis=1), axis=1)
-    diagonals = diagonals[:, np.newaxis]
-    deltas = gt_corners - rois_corners
-    deltas = deltas.transpose((0, 2, 1)).reshape((-1, 24))
-    targets = deltas / diagonals
-    return targets
+   num = len(rois_corners)
+   deltas = np.zeros((num, 8, 3), dtype=np.float32)
+   for n in range(num):
+      e = rois_corners[n]
+      center = np.sum(e, axis=0, keepdims=True) / 8
+      scale = (np.sum((e - center) ** 2) / 8) ** 0.5
+     
+      g = gt_corners[n]
+      deltas[n] = (g-e)/scale
 
-def corner_transform_inv(rois_corners, targets):
-    diagonals = np.linalg.norm(rois_corners.max(axis=1) - rois_corners.min(axis=1), axis=1)
-    diagonals = diagonals[:, np.newaxis]
-    deltas = targets * diagonals
-    deltas = deltas.reshape((-1, 3, 8)).transpose(0,2,1)
-    pred_corners = rois_corners + deltas
-    return pred_corners 
+   return deltas
+
+def corner_transform_inv(rois_corners, deltas):
+   num = len(rois_corners)
+   pred_corners = np.zeros((num, 8, 3), dtype=np.float32)
+   for n in range(num):
+      e = rois_corners[n]
+      center = np.sum(e, axis=0, keepdims=True) / 8
+      scale = (np.sum((e - center) ** 2) / 8) ** 0.5
+
+      d = deltas[n]
+      pred_corners[n] = e + scale * d
+
+   return pred_corners
     
     
 

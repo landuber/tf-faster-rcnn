@@ -26,13 +26,13 @@ case ${DATASET} in
     TRAIN_IMDB="kitti3d_train"
     TEST_IMDB="kitti3d_test"
     STEPSIZE=80000
-    ITERS=5000
+    ITERS=55000
     ANCHORS="[8,16,32]"
     ;;
   pascal_voc_0712)
     TRAIN_IMDB="voc_2007_trainval+voc_2012_trainval"
     TEST_IMDB="voc_2007_test"
-    ITERS=110000
+    ITERS=120000
     ANCHORS="[8,16,32]"
     ;;
   coco)
