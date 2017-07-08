@@ -50,7 +50,7 @@ def _get_lidar_blob(lidar_path):
   # Create a blob to hold the input images
   return lidar_list_to_blob(processed_lidars)
 
-def _draw_on_image(im, corners, rois):
+def _draw_on_image(im, corners):
   
   for i in range(corners.shape[0]):
     assert corners[i, :].shape[0] == 8
@@ -98,12 +98,14 @@ def _draw_on_lidar(im, corners, rois):
   return im
 
 def _get_rotz(corners):
-  rots = []
-  dim = np.array([np.linalg.norm(corners[0, 0, :] - corners[0, 1, :]),
-		        np.linalg.norm(corners[0, 1, :] - corners[0, 2, :]),
-		        np.linalg.norm(corners[0, 0, :] - corners[0, 4, :])])
-  rot = np.arctan2((corners[0, 0, 1] - corners[0, 1, 1]), (corners[0, 0, 0] - corners[0, 1, 0]))
-  return rot, dim
+  dims = np.empty((len(corners), 3), dtype=np.float32) 
+  rots = np.empty((len(corners), 1), dtype=np.float32) 
+  for i in range(0, len(corners)):
+     dims[i] = np.array([np.linalg.norm(corners[i, 0, :] - corners[i, 1, :]),
+			np.linalg.norm(corners[i, 1, :] - corners[i, 2, :]),
+			np.linalg.norm(corners[i, 0, :] - corners[i, 4, :])])
+     rots = np.arctan2((corners[i, 0, 1] - corners[i, 1, 1]), (corners[i, 0, 0] - corners[i, 1, 0]))
+  return rots, dims
   
 
 
@@ -115,8 +117,9 @@ def _get_poses(dets):
     rot = np.zeros_like(loc, dtype=np.float32)
     rot[:, 2] = rot_z
     poses = np.hstack((loc, rot))
-    poses = pd.DataFrame(poses, columns=['tx', 'ty', 'tz', 'rx', 'ry', 'rz'])
-    return poses.to_dict(orient='records'), dim
+    poses = poses.reshape((1, -1))
+    dim = dim.reshape((1, -1))
+    return poses, dim
 
 def _appyRot(yaw, pitch):
    yaw = yaw * math.pi / 180
@@ -205,30 +208,30 @@ def apply_nms(all_boxes, thresh):
       nms_boxes[cls_ind][im_ind] = dets[keep, :].copy()
   return nms_boxes
 
-def interpolate_lidar_to_camera(img_files, lidar_files):
+def interpolate_lidar_to_camera(img_files, lidar_files, poses):
+  lidar_files = np.array(map(lambda f: int(os.path.splitext(os.path.split(f)[1])[0]), 
+			    lidar_files))
+  lidar_files = lidar_files.reshape((-1, 1)) 
+  lidar_poses = np.hstack((lidar_files, poses))
   img_df = pd.DataFrame(map(lambda f: os.path.splitext(os.path.split(f)[1])[0], 
 			    img_files)
 			, columns = ['timestamp'])
-  lidar_df = pd.DataFrame(map(lambda f: (os.path.splitext(os.path.split(f)[1])[0], f), 
-			    lidar_files)
-			, columns = ['timestamp', 'path'])
+  lidar_df = pd.DataFrame(lidar_poses)
   img_df['timestamp'] = pd.to_datetime(img_df['timestamp'].astype(int))
   img_df.set_index(['timestamp'], inplace=True)
   img_df.index.rename('index', inplace=True)
 
-  lidar_df['timestamp'] = pd.to_datetime(lidar_df['timestamp'].astype(int))
-  lidar_df.set_index(['timestamp'], inplace=True)
+  lidar_df[0] = pd.to_datetime(lidar_df[0].astype(int))
+  lidar_df.set_index([0], inplace=True)
   lidar_df.index.rename('index', inplace=True)
 
   merged = functools.reduce(lambda left, right: pd.merge(left, right, how='outer', 
 							 left_index=True, right_index=True),
 			   [img_df] + [lidar_df])
-  arr, cat = merged['path'].factorize()
-  paths = pd.Series(arr).replace(-1, np.nan).interpolate(method='nearest').ffill().bfill().astype('category').cat.rename_categories(cat).astype('str')
-  paths = paths.to_frame()
-  paths.set_index(merged.index, inplace=True)
-  paths = paths.loc[img_df.index]
-  return paths.values.T[0]
+  merged.interpolate(method='time', inplace=True, limit=100, limit_direction='both')
+  merged = merged.loc[img_df.index]  # back to only index' rows
+  merged.fillna(0.0, inplace=True)
+  return merged.as_matrix()
 
 def top_img(lidar):
   top_tensor = lidar_to_top_tensor(lidar)
@@ -238,6 +241,26 @@ def top_img(lidar):
   img = np.dstack((img, img, img)).astype(np.uint8)
 
   return img
+
+def dim_loc_rot_to_box(dim, loc, rot):
+  h = dim[0]
+  w = dim[1] 
+  l = dim[2] 
+
+  # corners from the top surface, then the bottom surface
+  box = np.array([ # in camera coordinates around zero point and without orientation yet\
+          [l/2, -l/2,  -l/2, l/2, l/2, -l/2,  -l/2, l/2], \
+          [-w/2, -w/2, w/2, w/2,  -w/2, -w/2, w/2, w/2], \
+          [ h,  h,  h,  h, 0.0,  0.0,  0.0, 0.0]])
+
+
+  rotMat = np.array([\
+          [np.cos(rot), -np.sin(rot), 0.0], \
+          [np.sin(rot),  np.cos(rot), 0.0], \
+          [        0.0,          0.0, 1.0]])
+  cornerPosInVelo = np.dot(rotMat, box) + np.tile(loc, (8,1)).T
+  box = cornerPosInVelo.transpose()
+  return box
 
 def test_net(sess, net, num_classes, test_path, weights_filename, max_per_image=1, thresh=0.00):
   
@@ -250,7 +273,8 @@ def test_net(sess, net, num_classes, test_path, weights_filename, max_per_image=
 
   img_files.sort()
   lidar_files.sort()
-  files = interpolate_lidar_to_camera(img_files, lidar_files)
+  files = lidar_files
+  #files = interpolate_lidar_to_camera(img_files, lidar_files)
   np.random.seed(cfg.RNG_SEED)
   """Test a Fast R-CNN network on an image database."""
   num_lidars = len(files)
@@ -274,9 +298,9 @@ def test_net(sess, net, num_classes, test_path, weights_filename, max_per_image=
 
   # timers
   _t = {'im_detect' : Timer(), 'misc' : Timer()}
-  #tracklet = Tracklet(object_type='car', l=3.83, w=3.83, h=1.35, first_frame=0)
-  tracklets = [Tracklet(object_type=obj_types[k-1], l=0., w=0., h=0., first_frame=0) for k in range(1, num_classes)]
-  dims = np.zeros((num_classes - 1, len(files), 3), dtype=np.float32) 
+  max_per_image = 1 # todo: remove this 
+  dims = np.zeros((num_classes - 1, len(files), 3 * max_per_image), dtype=np.float32) 
+  poses = np.zeros((num_classes - 1, len(files), 6 * max_per_image), dtype=np.float32) 
   top_score = 0 
   top_score_index = 0
 
@@ -285,7 +309,7 @@ def test_net(sess, net, num_classes, test_path, weights_filename, max_per_image=
   
   for i in arr:
     file = files[i]
-    path, basename = os.path.split(img_files[i])
+    path, basename = os.path.split(file)
     stem, ext = os.path.splitext(basename)
 
     _t['im_detect'].tic()
@@ -294,9 +318,6 @@ def test_net(sess, net, num_classes, test_path, weights_filename, max_per_image=
 
     _t['misc'].tic()
 
-    # skip j = 0, because it's the background class
-    #corners = np.delete(corners, np.arange(corners.shape[0])[::num_classes], axis=0)
-    #corners = corners.reshape((scores.shape[0], num_classes, 8, 3))
     for j in range(1, num_classes):
       inds = np.where(scores[:, j] > thresh)[0]
       cls_scores = scores[inds, j]
@@ -312,7 +333,6 @@ def test_net(sess, net, num_classes, test_path, weights_filename, max_per_image=
 
 
     # Limit to max_per_image detections *over all classes*
-    max_per_image = 1 # todo: remove this 
     if max_per_image > 0:
         for j in range(1, num_classes):
           lidar_scores = np.sort(all_corners[j][i][:, -1])
@@ -328,7 +348,7 @@ def test_net(sess, net, num_classes, test_path, weights_filename, max_per_image=
           # yaw and pitch in degrees
           corners_pose = corners_pose.transpose(0, 2, 1)
           transformed_pose = np.empty((len(corners_pose), 8, 3), dtype=np.float32)
-	  r = _appyRot(0, 0)
+	  r = _appyRot(-1, -0.3)
           for h in range(len(corners_pose)):
 	     transformed_pose[h, :] = np.dot(r, corners_pose[h, :]).transpose(1, 0)
 
@@ -336,9 +356,9 @@ def test_net(sess, net, num_classes, test_path, weights_filename, max_per_image=
           #print(corners_pose)
           #print(top_box_to_lidar_box(rois[keep, 1:]))
           #print(rois[keep, 1:])
-	  poses, dim = _get_poses(corners_pose)
-	  dims[j-1, i, :] = dim
-          tracklets[j-1].poses.extend(poses)
+	  p, d = _get_poses(corners_pose)
+	  dims[j-1, i, :] = d
+          poses[j-1, i, :] = p
 	  if 1:
 	    lidar = np.fromfile(file, dtype=np.float32)
 	    lidar = lidar.reshape((-1, 4))
@@ -347,9 +367,6 @@ def test_net(sess, net, num_classes, test_path, weights_filename, max_per_image=
 	    lidar_img = top_img(lidar)
 	    lidar_img = _draw_on_lidar(lidar_img, corners_pose, all_rois[j][i])
 	    cv2.imwrite(os.path.join(output_dir, obj_types[j-1], 'Lidar', stem + '.png'), lidar_img)
-            img = cv2.imread(img_files[i])
-	    img = _draw_on_image(img, corners_pose, all_rois[j][i])
-            cv2.imwrite(os.path.join(output_dir, obj_types[j-1], 'Images', stem + '.png'), img)
     _t['misc'].toc()
 
 
@@ -358,12 +375,29 @@ def test_net(sess, net, num_classes, test_path, weights_filename, max_per_image=
             _t['misc'].average_time))
 
   for j in range(1, num_classes):
-      tracklet = tracklets[j-1]
+      tracklet = Tracklet(object_type=obj_types[j-1], l=0., w=0., h=0., first_frame=0)
       collection = TrackletCollection()
-      dim =  dims[j-1, top_score_index, :]
-      tracklet.l = dim[0]
-      tracklet.w = dim[1]
-      tracklet.h = dim[2]
+      p = interpolate_lidar_to_camera(img_files, lidar_files, poses[j-1]) 
+      print(p.shape)
+      l, w, h =  dims[j-1, top_score_index, :]
+      for i in range(0, len(p)):
+ 	 file = img_files[i]
+         path, basename = os.path.split(file)
+         stem, ext = os.path.splitext(basename)
+         img = cv2.imread(file)
+         box = dim_loc_rot_to_box([h, w, l], p[i, :3], p[i, 5])
+	 img = _draw_on_image(img, box[np.newaxis, :])
+         cv2.imwrite(os.path.join(output_dir, obj_types[j-1], 'Images', stem + '.png'), img)
+         tracklet.poses.append({'tx': p[i, 0], 
+			        'ty': p[i, 1],
+			        'tz': p[i, 2],
+			        'rx': p[i, 3],
+			        'ry': p[i, 4],
+			        'rz': p[i, 5]})
+   
+      tracklet.l = l
+      tracklet.w = w
+      tracklet.h = h
       collection.tracklets.append(tracklet)
       tracklet_file = os.path.join(output_dir, 'tracklet_labels_' + obj_types[j-1] + '.xml')
       collection.write_xml(tracklet_file)

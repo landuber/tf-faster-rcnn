@@ -25,8 +25,8 @@ case ${DATASET} in
   kitti_voc)
     TRAIN_IMDB="kitti3d_train"
     TEST_IMDB="kitti3d_val"
-    STEPSIZE=80000
-    ITERS=120000
+    STEPSIZE=50000
+    ITERS=90000
     ANCHORS="[1,2,4]"
     ;;
   pascal_voc_0712)

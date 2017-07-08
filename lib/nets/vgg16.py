@@ -34,6 +34,7 @@ class vgg16(Network):
 
   def build_network(self, sess, is_training=True):
     self.is_training = is_training
+    self.sess = sess
     with tf.variable_scope('vgg_16', 'vgg_16',
                            regularizer=tf.contrib.layers.l2_regularizer(cfg.TRAIN.WEIGHT_DECAY)):
       # select initializers

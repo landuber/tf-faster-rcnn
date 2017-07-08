@@ -137,16 +137,17 @@ class Network(object):
       batch_ids = tf.squeeze(tf.slice(rois, [0, 0], [-1, 1], name="batch_id"), [1])
       # Get the normalized coordinates of bboxes
       bottom_shape = tf.shape(bottom)
+      #tf.Print(bottom, [bottom], message='Shape of bottom:')
       # account for the 4x upsampling 
       height = (tf.to_float(bottom_shape[1]) - 1.) * np.float32(self._feat_stride[0] / 2.)
       width = (tf.to_float(bottom_shape[2]) - 1.) * np.float32(self._feat_stride[0] / 2.)
-      x1 = tf.slice(rois, [0, 1], [-1, 1], name="x1") / width
-      y1 = tf.slice(rois, [0, 2], [-1, 1], name="y1") / height
-      x2 = tf.slice(rois, [0, 4], [-1, 1], name="x2") / width
-      y2 = tf.slice(rois, [0, 5], [-1, 1], name="y2") / height
+      x1 = (tf.slice(rois, [0, 1], [-1, 1], name="x1") - 5.) / width
+      y1 = (tf.slice(rois, [0, 2], [-1, 1], name="y1") - 5.) / height
+      x2 = (tf.slice(rois, [0, 4], [-1, 1], name="x2") + 5.) / width
+      y2 = (tf.slice(rois, [0, 5], [-1, 1], name="y2") + 5.) / height
       # Won't be backpropagated to rois anyway, but to save time
       bboxes = tf.stop_gradient(tf.concat([y1, x1, y2, x2], axis=1))
-      pre_pool_size = cfg.POOLING_SIZE * 2
+      pre_pool_size = 28
       crops = tf.image.crop_and_resize(bottom, bboxes, tf.to_int32(batch_ids), [pre_pool_size, pre_pool_size], name="crops")
 
     return slim.max_pool2d(crops, [2, 2], padding='SAME')
